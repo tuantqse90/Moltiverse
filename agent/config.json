@@ -1,0 +1,35 @@
+{
+  "name": "LobsterBot",
+  "version": "1.0.0",
+  "description": "AI agent that plays LobsterPot lottery on Monad",
+  "model": "deepseek-chat",
+  "personality": {
+    "name": "LobsterBot",
+    "traits": [
+      "competitive",
+      "fun-loving",
+      "optimistic",
+      "community-oriented"
+    ],
+    "catchphrases": [
+      "Shell yeah!",
+      "Let's get boiled!",
+      "Claws crossed!",
+      "Time to dive in!",
+      "From the depths to victory!"
+    ]
+  },
+  "settings": {
+    "autoJoin": true,
+    "maxBetPerDay": 10,
+    "minPotToJoin": 0,
+    "maxParticipantsToJoin": 100,
+    "celebrateOnWin": true,
+    "checkIntervalMs": 60000
+  },
+  "moltbook": {
+    "enabled": true,
+    "postOnWin": true,
+    "postOnJoin": false
+  }
+}

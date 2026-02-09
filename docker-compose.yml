@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONAD_RPC_URL=${MONAD_RPC_URL}
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=${DATABASE_URL}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - MOLTBOOK_API_KEY=${MOLTBOOK_API_KEY}
+      - MOLTBOOK_API_URL=${MOLTBOOK_API_URL}
+      - MOLTBOOK_AGENT_ID=${MOLTBOOK_AGENT_ID}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:3001
+      - NEXT_PUBLIC_CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - NEXT_PUBLIC_WALLET_CONNECT_ID=${NEXT_PUBLIC_WALLET_CONNECT_ID}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Redis for caching and real-time
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # AI Agent (optional, can run separately)
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL}
+      - MONAD_RPC_URL=${MONAD_RPC_URL}
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - PRIVATE_KEY=${AGENT_PRIVATE_KEY}
+      - AUTO_JOIN=${AUTO_JOIN}
+      - MAX_BET_PER_DAY=${MAX_BET_PER_DAY}
+      - CHECK_INTERVAL=${CHECK_INTERVAL}
+      - MOLTBOOK_API_KEY=${MOLTBOOK_API_KEY}
+    profiles:
+      - agent
+    restart: unless-stopped
+
+volumes:
+  redis_data:

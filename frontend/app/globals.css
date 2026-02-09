@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Monad Dark Theme (default) */
+:root, .dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 14, 9, 28; /* monad-900 */
+  --background-end-rgb: 26, 16, 51;
+  --card-bg: rgba(26, 16, 51, 0.6);
+  --card-border: rgba(110, 84, 255, 0.2);
+  --text-primary: 255, 255, 255;
+  --text-secondary: 196, 181, 253; /* monad-300 */
+  --text-muted: 139, 92, 246;
+  --accent-primary: 110, 84, 255; /* monad-600 */
+  --accent-secondary: 133, 230, 255; /* ocean-300 */
+}
+
+/* Light theme */
+.light {
+  --foreground-rgb: 14, 9, 28;
+  --background-start-rgb: 245, 243, 255;
+  --background-end-rgb: 237, 233, 254;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --card-border: rgba(110, 84, 255, 0.3);
+  --text-primary: 14, 9, 28;
+  --text-secondary: 91, 63, 217;
+  --text-muted: 110, 84, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #0e091c;
+  min-height: 100vh;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.light body {
+  background: #f5f3ff;
+}
+
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbar - Monad */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(14, 9, 28, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(110, 84, 255, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(110, 84, 255, 0.6);
+}
+
+/* Light theme scrollbar */
+.light ::-webkit-scrollbar-track {
+  background: #f5f3ff;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(110, 84, 255, 0.5);
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(110, 84, 255, 0.7);
+}
+
+/* Lobster pot animation */
+@keyframes boil {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.animate-boil {
+  animation: boil 0.5s ease-in-out infinite;
+}
+
+/* Monad glow effects */
+.glow-monad {
+  box-shadow: 0 0 20px rgba(110, 84, 255, 0.5);
+}
+
+.glow-monad-lg {
+  box-shadow: 0 0 40px rgba(110, 84, 255, 0.4), 0 0 80px rgba(110, 84, 255, 0.2);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(133, 230, 255, 0.5);
+}
+
+/* Legacy glow (keeping for compatibility) */
+.glow-lobster {
+  box-shadow: 0 0 20px rgba(110, 84, 255, 0.5);
+}
+
+.glow-ocean {
+  box-shadow: 0 0 20px rgba(133, 230, 255, 0.5);
+}
+
+/* Card glass effect */
+.glass-card {
+  background: rgba(14, 9, 28, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(110, 84, 255, 0.2);
+}
+
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(110, 84, 255, 0.3);
+}
+
+/* Button glow on hover */
+.btn-glow:hover {
+  box-shadow: 0 0 30px rgba(110, 84, 255, 0.5);
+}
+
+/* Accent border */
+.accent-border {
+  border: 1px solid rgba(110, 84, 255, 0.3);
+  border-radius: 1rem;
+}
+
+.accent-border:hover {
+  border-color: rgba(110, 84, 255, 0.5);
+}
+
+/* Animated gradient for mint button */
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  animation: gradient 1.5s ease infinite;
+}
+
+/* Shimmer effect */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: shimmer 1.5s infinite;
+}
