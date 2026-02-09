@@ -16,6 +16,8 @@ import { createAgentPrivateChatRoutes } from './api/agentPrivateChat.js';
 import { createPMonRoutes } from './api/pmon.js';
 import { createSpinRoutes } from './api/spin.js';
 import { createNFTRoutes } from './api/nft.js';
+import { createMoltxRoutes } from './api/moltx.js';
+import { moltxService } from './services/moltx.js';
 import userAgentRoutes from './api/userAgent.js';
 import agentLeaderboardRoutes from './api/agentLeaderboard.js';
 import agentTransactionsRoutes from './api/agentTransactions.js';
@@ -72,6 +74,7 @@ async function main() {
   app.use('/api', createPMonRoutes());
   app.use('/api', createSpinRoutes());
   app.use('/api', createNFTRoutes());
+  app.use('/api', createMoltxRoutes());
   app.use('/api/agent', userAgentRoutes);
   app.use('/api/agent-leaderboard', agentLeaderboardRoutes);
   app.use('/api/agent-transactions', agentTransactionsRoutes);
@@ -394,6 +397,23 @@ async function main() {
 
     // Post to Moltbook
     await moltbook.postWinAnnouncement(winner, amount, round, participantCount);
+
+    // Post to Moltx (if configured)
+    if (moltxService.isConfigured()) {
+      try {
+        const moltxResult = await moltxService.postWinner({
+          address: winner,
+          amount: parseFloat(amount),
+          roundNumber: round,
+          participantCount,
+        });
+        if (moltxResult.success) {
+          console.log(`  📣 Posted to Moltx: ${moltxResult.postId}`);
+        }
+      } catch (err) {
+        console.error('  Failed to post to Moltx:', err);
+      }
+    }
   });
 
   blockchain.onRoundStarted((round, startTime, endTime) => {
