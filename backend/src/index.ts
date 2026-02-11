@@ -118,7 +118,7 @@ async function main() {
   });
 
   // Health/debug endpoint
-  app.get('/api/health', async (_req, res) => {
+  app.get('/api/debug/db', async (_req, res) => {
     const dbAvailable = isDatabaseAvailable();
     const hasDbUrl = !!process.env.DATABASE_URL;
     const dbUrlPrefix = process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'NOT SET';
