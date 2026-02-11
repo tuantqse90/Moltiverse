@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { drawFullLobster } from '@/lib/drawLobster'
 
 interface ProfileAvatarProps {
   avatarUrl: string | null
   name?: string | null
   address?: string | null
+  nftSeed?: number | null
   size?: 'sm' | 'md' | 'lg' | 'xl'
   showBorder?: boolean
   isAgent?: boolean
@@ -31,19 +33,37 @@ export function ProfileAvatar({
   avatarUrl,
   name,
   address,
+  nftSeed,
   size = 'md',
   showBorder = true,
   isAgent = false,
   onClick,
 }: ProfileAvatarProps) {
   const [imageError, setImageError] = useState(false)
+  const [nftDataUrl, setNftDataUrl] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  // Render NFT on hidden canvas when nftSeed is provided
+  useEffect(() => {
+    if (nftSeed == null) {
+      setNftDataUrl(null)
+      return
+    }
+
+    // Create an offscreen canvas
+    const canvas = document.createElement('canvas')
+    canvasRef.current = canvas
+    drawFullLobster(canvas, nftSeed, 3)
+    setNftDataUrl(canvas.toDataURL('image/png'))
+  }, [nftSeed])
 
   // Generate avatar URL from name or address if not provided
   const generatedAvatarUrl = useMemo(() => {
+    if (nftDataUrl) return nftDataUrl
     if (avatarUrl && !imageError) return avatarUrl
     const seed = name || address || 'anonymous'
     return getDiceBearUrl(seed, isAgent)
-  }, [avatarUrl, name, address, isAgent, imageError])
+  }, [avatarUrl, name, address, isAgent, imageError, nftDataUrl])
 
   const borderClass = showBorder
     ? isAgent
@@ -62,6 +82,7 @@ export function ProfileAvatar({
         src={generatedAvatarUrl}
         alt={name || 'Avatar'}
         className="w-full h-full object-cover"
+        style={nftDataUrl ? { imageRendering: 'pixelated' } : undefined}
         onError={() => setImageError(true)}
       />
       {isAgent && (

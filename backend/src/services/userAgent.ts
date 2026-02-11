@@ -12,7 +12,7 @@ const ALGORITHM = 'aes-256-gcm';
 const agentWalletsCache = new Map<string, UserAgentWallet>();
 
 // Encrypt private key
-function encryptPrivateKey(privateKey: string): string {
+export function encryptPrivateKey(privateKey: string): string {
   const iv = randomBytes(16);
   const key = scryptSync(ENCRYPTION_KEY, 'salt', 32);
   const cipher = createCipheriv(ALGORITHM, key, iv);
@@ -25,7 +25,7 @@ function encryptPrivateKey(privateKey: string): string {
 }
 
 // Decrypt private key
-function decryptPrivateKey(encryptedData: string): string {
+export function decryptPrivateKey(encryptedData: string): string {
   const [ivHex, authTagHex, encrypted] = encryptedData.split(':');
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');
@@ -89,6 +89,7 @@ export class UserAgentService {
         encryptedPrivateKey: encryptedKey,
         isEnabled: false,
         agentName: null,
+        nftAvatarSeed: null,
         personality: 'newbie',
         customPersonality: null,
         playStyle: 'strategic',

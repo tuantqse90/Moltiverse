@@ -9,7 +9,8 @@ export interface Profile {
   name: string | null
   gender: string | null
   avatarUrl: string | null
-  avatarSource: 'dicebear' | 'twitter'
+  avatarSource: 'dicebear' | 'twitter' | 'nft'
+  nftAvatarSeed: number | null
   hobbies: string | null
   wealth: string | null
   twitterId: string | null
@@ -95,6 +96,37 @@ export function useProfile(walletAddress: string | undefined) {
     }
   }, [walletAddress])
 
+  const setNftAvatar = useCallback(async (seed: number | null) => {
+    if (!walletAddress) return false
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/profiles/${walletAddress}/nft-avatar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seed }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setProfile(data.data)
+        return true
+      } else {
+        setError(data.error || 'Failed to set NFT avatar')
+        return false
+      }
+    } catch (err) {
+      setError('Failed to connect to server')
+      console.error('Error setting NFT avatar:', err)
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [walletAddress])
+
   const disconnectTwitter = useCallback(async () => {
     if (!walletAddress) return false
 
@@ -138,33 +170,44 @@ export function useProfile(walletAddress: string | undefined) {
     error,
     fetchProfile,
     updateProfile,
+    setNftAvatar,
     disconnectTwitter,
   }
 }
 
-export function useAvatarUrl(walletAddress: string | undefined): string {
-  const [avatarUrl, setAvatarUrl] = useState<string>('')
+export interface AvatarData {
+  url: string
+  source: 'dicebear' | 'twitter' | 'nft'
+  nftSeed?: number
+}
+
+export function useAvatarUrl(walletAddress: string | undefined): AvatarData {
+  const [avatarData, setAvatarData] = useState<AvatarData>({ url: '', source: 'dicebear' })
 
   useEffect(() => {
     if (!walletAddress) {
-      setAvatarUrl('')
+      setAvatarData({ url: '', source: 'dicebear' })
       return
     }
 
     // Generate DiceBear URL directly for fast display
     const seed = walletAddress.toLowerCase()
-    setAvatarUrl(`https://api.dicebear.com/7.x/bottts/svg?seed=${seed}&size=128`)
+    setAvatarData({ url: `https://api.dicebear.com/7.x/bottts/svg?seed=${seed}&size=128`, source: 'dicebear' })
 
-    // Then fetch actual avatar (might be Twitter)
+    // Then fetch actual avatar (might be Twitter or NFT)
     fetch(`${BACKEND_URL}/api/profiles/${walletAddress}/avatar`)
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.data?.url) {
-          setAvatarUrl(data.data.url)
+        if (data.success && data.data) {
+          if (data.data.source === 'nft' && data.data.nftSeed != null) {
+            setAvatarData({ url: '', source: 'nft', nftSeed: data.data.nftSeed })
+          } else if (data.data.url) {
+            setAvatarData({ url: data.data.url, source: data.data.source })
+          }
         }
       })
       .catch(console.error)
   }, [walletAddress])
 
-  return avatarUrl
+  return avatarData
 }

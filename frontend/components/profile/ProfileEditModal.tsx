@@ -13,6 +13,7 @@ interface ProfileEditModalProps {
   onSave: (input: ProfileUpdateInput) => Promise<Profile | null>
   walletAddress: string | undefined
   onTwitterConnected?: () => void
+  onSetNftAvatar?: () => void
 }
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say']
@@ -24,6 +25,7 @@ export function ProfileEditModal({
   onSave,
   walletAddress,
   onTwitterConnected,
+  onSetNftAvatar,
 }: ProfileEditModalProps) {
   const [name, setName] = useState('')
   const [gender, setGender] = useState('')
@@ -103,13 +105,22 @@ export function ProfileEditModal({
               {/* Content */}
               <div className="p-6 space-y-6">
                 {/* Avatar */}
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-2">
                   <ProfileAvatar
                     avatarUrl={profile?.avatarUrl || null}
                     name={name || profile?.name}
+                    nftSeed={profile?.nftAvatarSeed}
                     size="xl"
                     isAgent={profile?.isAgent}
                   />
+                  {onSetNftAvatar && (
+                    <button
+                      onClick={onSetNftAvatar}
+                      className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                    >
+                      {profile?.avatarSource === 'nft' ? 'Change NFT Avatar' : 'Set NFT Avatar'}
+                    </button>
+                  )}
                 </div>
 
                 {/* Twitter Connect */}

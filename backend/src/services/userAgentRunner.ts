@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
-import { UserAgentService, type AgentStats } from './userAgent.js';
+import { UserAgentService, type AgentStats, decryptPrivateKey } from './userAgent.js';
+import { TelegramWalletService } from './telegramWallet.js';
 import { ChatService } from './chat.js';
 import { emitToAll } from '../socket.js';
 import { DeepSeekService, type GameContext } from './deepseek.js';
@@ -427,6 +428,9 @@ export class UserAgentRunner {
           console.error(`[AgentRunner] Error running agent ${agent.agentAddress}:`, error);
         }
       }
+
+      // Also run Telegram auto-play agents in the same cycle
+      await this.runTelegramAgents();
     } catch (error) {
       console.error('[AgentRunner] Error in runAgents:', error);
     }
@@ -481,6 +485,77 @@ export class UserAgentRunner {
       });
     } catch (error: any) {
       console.error(`[AgentRunner] ${displayName} failed to join:`, error.message);
+    }
+  }
+
+  /**
+   * Run auto-play for Telegram wallets with isAutoPlay enabled
+   */
+  private async runTelegramAgents() {
+    if (!this.contract || !this.provider) return;
+
+    try {
+      const autoPlayWallets = await TelegramWalletService.getAutoPlayWallets();
+      if (autoPlayWallets.length === 0) return;
+
+      console.log(`[AgentRunner] Checking ${autoPlayWallets.length} Telegram auto-play wallets...`);
+
+      // Round info was already fetched in runAgents(), but we need it here too
+      // in case runTelegramAgents is called when runAgents skipped early
+      const roundInfo = await this.contract.getCurrentRoundInfo();
+      const isEnded = roundInfo[5];
+      const endTime = Number(roundInfo[2]);
+      const timeRemaining = endTime - Math.floor(Date.now() / 1000);
+
+      if (isEnded || timeRemaining < 10) return;
+
+      for (const wallet of autoPlayWallets) {
+        try {
+          const displayName = wallet.displayName || wallet.telegramUsername || `TG-${wallet.telegramUserId}`;
+
+          // Check if already joined
+          const hasJoined = await this.contract.hasJoined(wallet.walletAddress);
+          if (hasJoined) {
+            console.log(`[AgentRunner] ${displayName} (TG) already joined this round`);
+            continue;
+          }
+
+          // Check balance
+          const balance = await this.provider!.getBalance(wallet.walletAddress);
+          const entryFee = ethers.parseEther('0.01');
+          const gasBuffer = ethers.parseEther('0.005');
+
+          if (balance < entryFee + gasBuffer) {
+            console.log(`[AgentRunner] ${displayName} (TG) insufficient balance: ${ethers.formatEther(balance)} MON - disabling auto-play`);
+            await TelegramWalletService.setAutoPlay(wallet.telegramUserId, false);
+            continue;
+          }
+
+          // Decrypt key and join
+          const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey);
+          const signer = new ethers.Wallet(privateKey, this.provider!);
+          const connectedContract = this.contract.connect(signer) as ethers.Contract;
+
+          console.log(`[AgentRunner] ${displayName} (TG) joining pot...`);
+          const tx = await connectedContract.joinPot({ value: entryFee });
+          await tx.wait();
+
+          console.log(`[AgentRunner] ${displayName} (TG) joined the pot! TX: ${tx.hash}`);
+
+          // Update last played
+          await TelegramWalletService.recordGameResult(wallet.telegramUserId, false, '0.01');
+
+          // Emit join event
+          emitToAll('pot:joined', {
+            agent: wallet.walletAddress,
+            timestamp: Date.now(),
+          });
+        } catch (error: any) {
+          console.error(`[AgentRunner] TG wallet ${wallet.telegramUserId} failed to join:`, error.message);
+        }
+      }
+    } catch (error) {
+      console.error('[AgentRunner] Error in runTelegramAgents:', error);
     }
   }
 
@@ -643,6 +718,140 @@ export class UserAgentRunner {
       console.log(`Agent chat: [${chatMessage.senderName}]: ${message}${replyTo ? ` (reply to ${replyTo.senderName || replyTo.sender.slice(0, 8)})` : ''}`);
     } catch (error) {
       console.error('Error in runChats:', error);
+    }
+
+    // Also run Telegram auto-chat
+    await this.runTelegramChats();
+  }
+
+  /**
+   * Run auto-chat for Telegram wallets with isAutoChat enabled
+   */
+  private async runTelegramChats() {
+    try {
+      const autoChatWallets = await TelegramWalletService.getAutoChatWallets();
+      if (autoChatWallets.length === 0) return;
+
+      // Pick one random Telegram wallet to chat this cycle
+      const wallet = autoChatWallets[Math.floor(Math.random() * autoChatWallets.length)];
+      const senderName = wallet.displayName || wallet.telegramUsername || `TG-${wallet.telegramUserId}`;
+
+      console.log(`[AgentChat] Telegram user ${senderName} auto-chatting...`);
+
+      // Use 'friendly' personality for Telegram auto-chat
+      const personality = 'friendly';
+      let message = '';
+      let replyTo: { id: string; sender: string; senderName?: string; message: string } | undefined;
+
+      // Get game context
+      let potAmount = '0';
+      let participantCount = 0;
+      let timeRemaining = 0;
+
+      if (this.contract) {
+        try {
+          const roundInfo = await this.contract.getCurrentRoundInfo();
+          potAmount = ethers.formatEther(roundInfo[3]);
+          participantCount = Number(roundInfo[4]);
+          const endTime = Number(roundInfo[2]);
+          timeRemaining = endTime - Math.floor(Date.now() / 1000);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // Get recent messages to potentially reply to
+      const recentMessages = await ChatService.getHistory(10);
+      const messagesFromOthers = recentMessages.filter(
+        m => m.sender.toLowerCase() !== wallet.walletAddress.toLowerCase()
+      );
+
+      // 40% chance to reply
+      if (Math.random() < 0.4 && messagesFromOthers.length > 0) {
+        const targetMessage = messagesFromOthers[Math.floor(Math.random() * Math.min(3, messagesFromOthers.length))];
+        replyTo = {
+          id: targetMessage.id,
+          sender: targetMessage.sender,
+          senderName: targetMessage.senderName,
+          message: targetMessage.message.slice(0, 100),
+        };
+
+        // Try AI reply
+        if (DeepSeekService.isAvailable()) {
+          const gameContext: GameContext = {
+            potAmount,
+            participantCount,
+            timeRemaining,
+            recentMessages: recentMessages.map(m => ({
+              sender: m.sender,
+              senderName: m.senderName,
+              message: m.message,
+              isAgent: m.isAgent || false,
+            })),
+          };
+          const aiMessage = await DeepSeekService.generateMessage(
+            personality,
+            gameContext,
+            undefined,
+            { sender: targetMessage.sender, senderName: targetMessage.senderName, message: targetMessage.message }
+          );
+          if (aiMessage) message = aiMessage;
+        }
+
+        if (!message) {
+          const replyResult = this.generateReply(personality, targetMessage, potAmount, participantCount);
+          message = replyResult.message;
+        }
+      } else {
+        // Regular message
+        if (DeepSeekService.isAvailable() && Math.random() < 0.7) {
+          const gameContext: GameContext = {
+            potAmount,
+            participantCount,
+            timeRemaining,
+            recentMessages: recentMessages.map(m => ({
+              sender: m.sender,
+              senderName: m.senderName,
+              message: m.message,
+              isAgent: m.isAgent || false,
+            })),
+          };
+          const aiMessage = await DeepSeekService.generateMessage(personality, gameContext);
+          if (aiMessage) message = aiMessage;
+        }
+
+        if (!message) {
+          const messages = CHAT_MESSAGES[personality] || CHAT_MESSAGES.friendly;
+          message = messages[Math.floor(Math.random() * messages.length)];
+        }
+      }
+
+      const chatMessage: {
+        id: string;
+        sender: string;
+        senderName: string;
+        message: string;
+        timestamp: number;
+        isAgent: boolean;
+        replyTo?: { id: string; sender: string; senderName?: string; message: string };
+      } = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        sender: wallet.walletAddress,
+        senderName,
+        message,
+        timestamp: Date.now(),
+        isAgent: false,
+      };
+
+      if (replyTo) {
+        chatMessage.replyTo = replyTo;
+      }
+
+      await ChatService.saveMessage(chatMessage);
+      emitToAll('chat:message', chatMessage);
+      console.log(`TG auto-chat: [${senderName}]: ${message}${replyTo ? ` (reply to ${replyTo.senderName || replyTo.sender.slice(0, 8)})` : ''}`);
+    } catch (error) {
+      console.error('Error in runTelegramChats:', error);
     }
   }
 

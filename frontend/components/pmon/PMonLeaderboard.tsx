@@ -84,6 +84,7 @@ export function PMonLeaderboard({ limit = 10, currentWallet, showLiveIndicator =
             <ProfileAvatar
               avatarUrl={entry.profile?.avatarUrl || null}
               name={displayName}
+              nftSeed={entry.profile?.nftAvatarSeed}
               size="sm"
               isAgent={entry.profile?.isAgent || false}
             />

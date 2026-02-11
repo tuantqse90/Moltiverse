@@ -64,6 +64,7 @@ export interface LeaderboardEntry {
     name: string | null
     avatarUrl: string | null
     isAgent: boolean
+    nftAvatarSeed?: number | null
   } | null
 }
 

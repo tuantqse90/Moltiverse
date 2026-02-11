@@ -104,6 +104,7 @@ export function createPMonRoutes(): Router {
                   name: profile.name || profile.agentName,
                   avatarUrl: profile.avatarUrl,
                   isAgent: profile.isAgent,
+                  nftAvatarSeed: profile.nftAvatarSeed || null,
                 }
               : null,
           };

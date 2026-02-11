@@ -10,6 +10,7 @@ interface WinnerProfile {
   name: string | null
   avatarUrl: string | null
   isAgent: boolean
+  nftAvatarSeed?: number | null
 }
 
 interface WinnerAnnouncementProps {
@@ -94,6 +95,7 @@ export function WinnerAnnouncement({ winner, amount, round, isVisible }: WinnerA
               name: data.data.name,
               avatarUrl: data.data.avatarUrl,
               isAgent: data.data.isAgent,
+              nftAvatarSeed: data.data.nftAvatarSeed || null,
             })
           }
         })
@@ -186,6 +188,7 @@ export function WinnerAnnouncement({ winner, amount, round, isVisible }: WinnerA
                 <ProfileAvatar
                   avatarUrl={winnerProfile?.avatarUrl || null}
                   name={displayName}
+                  nftSeed={winnerProfile?.nftAvatarSeed}
                   size="xl"
                   isAgent={winnerProfile?.isAgent}
                   showBorder

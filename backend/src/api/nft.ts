@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { NFTService } from '../services/nft.js';
 import { PMonService } from '../services/pmon.js';
+import { renderNftImage } from '../services/nftImage.js';
 import { ethers } from 'ethers';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
@@ -524,6 +525,70 @@ export function createNFTRoutes(): Router {
     } catch (error) {
       console.error('Error getting stats:', error);
       res.status(500).json({ success: false, error: 'Failed to get stats' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // IMAGE RENDERING (server-side PNG)
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * GET /api/nft/image/:seed
+   * Render NFT pixel art as PNG image
+   * Query params: ?scale=4 (1-8, default 4 = 256x256)
+   */
+  router.get('/nft/image/:seed', (req: Request, res: Response) => {
+    try {
+      const seed = parseInt(req.params.seed);
+      if (isNaN(seed) || seed < 1) {
+        res.status(400).json({ error: 'Invalid seed' });
+        return;
+      }
+
+      const scale = Math.min(8, Math.max(1, parseInt(req.query.scale as string) || 4));
+      const png = renderNftImage(seed, scale);
+
+      res.set({
+        'Content-Type': 'image/png',
+        'Content-Length': png.length.toString(),
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      });
+      res.send(png);
+    } catch (error) {
+      console.error('Error rendering NFT image:', error);
+      res.status(500).json({ error: 'Failed to render image' });
+    }
+  });
+
+  /**
+   * GET /api/nft/image-info/:seed
+   * Get NFT image URL + traits info (for openclaw/Moltx avatar)
+   */
+  router.get('/nft/image-info/:seed', (req: Request, res: Response) => {
+    try {
+      const seed = parseInt(req.params.seed);
+      if (isNaN(seed) || seed < 1) {
+        res.status(400).json({ error: 'Invalid seed' });
+        return;
+      }
+
+      const traits = NFTService.generateTraits(seed);
+      const { score, tier } = NFTService.calculateRarityScore(traits);
+
+      res.json({
+        success: true,
+        data: {
+          seed,
+          imageUrl: `${BASE_URL}/api/nft/image/${seed}`,
+          imageUrlHD: `${BASE_URL}/api/nft/image/${seed}?scale=8`,
+          traits,
+          rarityScore: score,
+          rarityTier: tier,
+        },
+      });
+    } catch (error) {
+      console.error('Error getting image info:', error);
+      res.status(500).json({ error: 'Failed to get image info' });
     }
   });
 

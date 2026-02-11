@@ -149,5 +149,65 @@ export function createMoltxRoutes(): Router {
     }
   });
 
+  /**
+   * POST /api/moltx/set-nft-avatar
+   * Set NFT pixel art as agent avatar on Moltx
+   */
+  router.post('/moltx/set-nft-avatar', async (req: Request, res: Response) => {
+    try {
+      const { seed } = req.body;
+
+      if (!seed || isNaN(parseInt(seed))) {
+        res.status(400).json({ success: false, error: 'Valid seed required' });
+        return;
+      }
+
+      const result = await moltxService.setNftAvatar(parseInt(seed));
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: { avatarUrl: result.avatarUrl, seed: parseInt(seed) },
+        });
+      } else {
+        res.status(400).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      console.error('Error setting Moltx NFT avatar:', error);
+      res.status(500).json({ success: false, error: 'Failed to set avatar' });
+    }
+  });
+
+  /**
+   * POST /api/moltx/upload-media
+   * Upload an NFT image to Moltx CDN (for use in posts)
+   */
+  router.post('/moltx/upload-media', async (req: Request, res: Response) => {
+    try {
+      const { seed, scale } = req.body;
+
+      if (!seed || isNaN(parseInt(seed))) {
+        res.status(400).json({ success: false, error: 'Valid seed required' });
+        return;
+      }
+
+      const { renderNftImage } = await import('../services/nftImage.js');
+      const png = renderNftImage(parseInt(seed), Math.min(8, Math.max(1, parseInt(scale) || 6)));
+      const cdnUrl = await moltxService.uploadMedia(png, `nft-${seed}.png`);
+
+      if (cdnUrl) {
+        res.json({
+          success: true,
+          data: { cdnUrl, seed: parseInt(seed) },
+        });
+      } else {
+        res.status(400).json({ success: false, error: 'Failed to upload media' });
+      }
+    } catch (error) {
+      console.error('Error uploading media to Moltx:', error);
+      res.status(500).json({ success: false, error: 'Failed to upload' });
+    }
+  });
+
   return router;
 }

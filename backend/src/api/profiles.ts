@@ -22,6 +22,9 @@ export function createProfileRoutes(): Router {
 
       const profile = await ProfileService.getByWallet(address);
 
+      // Check if this address is an agent wallet (data in userAgentWallets table)
+      const agentData = await ProfileService.getAgentWalletData(address);
+
       if (!profile) {
         // Return a default profile with DiceBear avatar
         const avatarUrl = AvatarService.generateAvatarUrl(address);
@@ -29,27 +32,37 @@ export function createProfileRoutes(): Router {
           success: true,
           data: {
             walletAddress: address.toLowerCase(),
-            name: null,
+            name: agentData?.agentName || null,
             gender: null,
             avatarUrl,
-            avatarSource: 'dicebear',
+            avatarSource: agentData?.nftAvatarSeed != null ? 'nft' : 'dicebear',
+            nftAvatarSeed: agentData?.nftAvatarSeed ?? null,
             hobbies: null,
             wealth: null,
             twitterUsername: null,
             twitterDisplayName: null,
             twitterProfileImage: null,
-            isAgent: false,
-            agentName: null,
+            isAgent: agentData?.isAgent ?? false,
+            agentType: agentData?.agentType ?? null,
+            agentName: agentData?.agentName || null,
           },
         });
         return;
       }
 
-      // Don't expose sensitive tokens
+      // Don't expose sensitive tokens, merge agent wallet data if applicable
       const safeProfile = {
         ...profile,
         twitterAccessToken: undefined,
         twitterRefreshToken: undefined,
+        // Override with agent wallet data if this is an agent
+        ...(agentData ? {
+          isAgent: true,
+          agentType: agentData.agentType,
+          agentName: agentData.agentName || profile.agentName,
+          nftAvatarSeed: agentData.nftAvatarSeed ?? profile.nftAvatarSeed,
+          avatarSource: agentData.nftAvatarSeed != null ? 'nft' as const : profile.avatarSource,
+        } : {}),
       };
 
       res.json({
@@ -130,8 +143,24 @@ export function createProfileRoutes(): Router {
         return;
       }
 
-      // Check if profile has custom avatar (e.g., from Twitter)
+      // Check if profile has custom avatar
       const profile = await ProfileService.getByWallet(address);
+
+      // Also check agent wallet data (agents store nftAvatarSeed separately)
+      const agentData = await ProfileService.getAgentWalletData(address);
+
+      // Priority: NFT (agent wallet or profile) > Twitter > DiceBear
+      const nftSeed = agentData?.nftAvatarSeed ?? (profile?.avatarSource === 'nft' ? profile.nftAvatarSeed : null);
+      if (nftSeed != null) {
+        res.json({
+          success: true,
+          data: {
+            source: 'nft',
+            nftSeed,
+          },
+        });
+        return;
+      }
 
       if (profile?.avatarSource === 'twitter' && profile.twitterProfileImage) {
         res.json({
@@ -163,6 +192,79 @@ export function createProfileRoutes(): Router {
         success: false,
         error: 'Failed to get avatar',
       });
+    }
+  });
+
+  // Set NFT avatar for profile
+  router.post('/profiles/:address/nft-avatar', async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const { seed } = req.body;
+
+      if (!ethers.isAddress(address)) {
+        res.status(400).json({ success: false, error: 'Invalid wallet address' });
+        return;
+      }
+
+      // seed can be a number or null (to clear)
+      if (seed !== null && (typeof seed !== 'number' || !Number.isInteger(seed))) {
+        res.status(400).json({ success: false, error: 'Invalid seed value' });
+        return;
+      }
+
+      const profile = await ProfileService.setNftAvatar(address, seed);
+
+      if (!profile) {
+        res.status(400).json({
+          success: false,
+          error: seed !== null ? 'You do not own an NFT with this seed' : 'Profile not found',
+        });
+        return;
+      }
+
+      const safeProfile = {
+        ...profile,
+        twitterAccessToken: undefined,
+        twitterRefreshToken: undefined,
+      };
+
+      res.json({ success: true, data: safeProfile });
+    } catch (error) {
+      console.error('Error setting NFT avatar:', error);
+      res.status(500).json({ success: false, error: 'Failed to set NFT avatar' });
+    }
+  });
+
+  // Set NFT avatar for agent
+  router.post('/agents/:ownerAddress/nft-avatar', async (req: Request, res: Response) => {
+    try {
+      const { ownerAddress } = req.params;
+      const { seed } = req.body;
+
+      if (!ethers.isAddress(ownerAddress)) {
+        res.status(400).json({ success: false, error: 'Invalid wallet address' });
+        return;
+      }
+
+      if (seed !== null && (typeof seed !== 'number' || !Number.isInteger(seed))) {
+        res.status(400).json({ success: false, error: 'Invalid seed value' });
+        return;
+      }
+
+      const success = await ProfileService.setAgentNftAvatar(ownerAddress, seed);
+
+      if (!success) {
+        res.status(400).json({
+          success: false,
+          error: seed !== null ? 'You do not own an NFT with this seed' : 'Agent not found',
+        });
+        return;
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error setting agent NFT avatar:', error);
+      res.status(500).json({ success: false, error: 'Failed to set agent NFT avatar' });
     }
   });
 

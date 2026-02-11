@@ -11,6 +11,8 @@ interface ParticipantProfile {
   name: string | null
   avatarUrl: string | null
   isAgent: boolean
+  agentType?: 'agent' | 'openclaw-agent' | null
+  nftAvatarSeed?: number | null
 }
 
 interface ParticipantListProps {
@@ -59,6 +61,35 @@ export function ParticipantList({ participants, currentAddress }: ParticipantLis
     }
   }, [participants])
 
+  // Periodically refresh current user's profile for avatar changes
+  useEffect(() => {
+    if (!currentAddress) return
+
+    const refreshOwnProfile = async () => {
+      const addr = currentAddress.toLowerCase()
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/profiles/${addr}`)
+        const data = await response.json()
+        if (data.success && data.data) {
+          setProfiles(prev => {
+            const existing = prev[addr]
+            if (existing &&
+                existing.avatarUrl === data.data.avatarUrl &&
+                existing.nftAvatarSeed === data.data.nftAvatarSeed) {
+              return prev
+            }
+            return { ...prev, [addr]: data.data }
+          })
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Refresh immediately on mount, then every 15s
+    refreshOwnProfile()
+    const interval = setInterval(refreshOwnProfile, 15000)
+    return () => clearInterval(interval)
+  }, [currentAddress])
+
   const shortenAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
@@ -100,6 +131,7 @@ export function ParticipantList({ participants, currentAddress }: ParticipantLis
                   <ProfileAvatar
                     avatarUrl={profiles[address.toLowerCase()]?.avatarUrl || null}
                     name={profiles[address.toLowerCase()]?.name}
+                    nftSeed={profiles[address.toLowerCase()]?.nftAvatarSeed}
                     size="sm"
                     isAgent={profiles[address.toLowerCase()]?.isAgent}
                     showBorder={false}
@@ -118,7 +150,13 @@ export function ParticipantList({ participants, currentAddress }: ParticipantLis
                     <span className="text-xs bg-ocean-500 px-2 py-0.5 rounded-full">You</span>
                   )}
                   {profiles[address.toLowerCase()]?.isAgent && (
-                    <span className="text-xs bg-ocean-600/30 text-ocean-300 px-2 py-0.5 rounded-full">Agent</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      profiles[address.toLowerCase()]?.agentType === 'openclaw-agent'
+                        ? 'bg-amber-600/30 text-amber-300'
+                        : 'bg-ocean-600/30 text-ocean-300'
+                    }`}>
+                      {profiles[address.toLowerCase()]?.agentType === 'openclaw-agent' ? 'openclaw-agent' : 'Agent'}
+                    </span>
                   )}
                 </div>
                 <span className="text-gray-400 text-sm">#{index + 1}</span>

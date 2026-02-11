@@ -7,15 +7,16 @@ import { WalletButton } from '@/components/WalletButton'
 import Link from 'next/link'
 import { useProfile } from '../../hooks/useProfile'
 import { usePMon } from '../../hooks/usePMon'
-import { ProfileCard, ProfileEditModal } from '../../components/profile'
+import { ProfileCard, ProfileEditModal, NFTAvatarPicker } from '../../components/profile'
 import { Navigation } from '../../components/Navigation'
 import { PMonBalance } from '../../components/pmon/PMonBalance'
 
 export default function ProfilePage() {
   const { address, isConnected } = useWallet()
-  const { profile, loading, error, updateProfile, fetchProfile, disconnectTwitter } = useProfile(address)
+  const { profile, loading, error, updateProfile, fetchProfile, disconnectTwitter, setNftAvatar } = useProfile(address)
   const { balance: pmonBalance } = usePMon(address)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isNftPickerOpen, setIsNftPickerOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -219,6 +220,19 @@ export default function ProfilePage() {
         onSave={updateProfile}
         walletAddress={address}
         onTwitterConnected={fetchProfile}
+        onSetNftAvatar={() => {
+          setIsEditModalOpen(false)
+          setIsNftPickerOpen(true)
+        }}
+      />
+
+      {/* NFT Avatar Picker */}
+      <NFTAvatarPicker
+        isOpen={isNftPickerOpen}
+        onClose={() => setIsNftPickerOpen(false)}
+        walletAddress={address}
+        currentNftSeed={profile?.nftAvatarSeed}
+        onSelect={setNftAvatar}
       />
     </div>
   )

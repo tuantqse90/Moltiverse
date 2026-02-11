@@ -20,6 +20,7 @@ export function ProfileCard({ profile, onEdit, compact = false }: ProfileCardPro
         <ProfileAvatar
           avatarUrl={profile.avatarUrl}
           name={displayName}
+          nftSeed={profile.nftAvatarSeed}
           size="md"
           isAgent={profile.isAgent}
         />
@@ -51,6 +52,7 @@ export function ProfileCard({ profile, onEdit, compact = false }: ProfileCardPro
         <ProfileAvatar
           avatarUrl={profile.avatarUrl}
           name={displayName}
+          nftSeed={profile.nftAvatarSeed}
           size="xl"
           isAgent={profile.isAgent}
           onClick={onEdit}

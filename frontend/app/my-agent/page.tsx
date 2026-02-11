@@ -6,6 +6,7 @@ import { parseEther, formatEther, createWalletClient, createPublicClient, custom
 import { useWallet, getWalletProvider } from '@/hooks/useWallet'
 import { monad } from '@/config/chains'
 import { Navigation } from '@/components/Navigation'
+import { ProfileAvatar, NFTAvatarPicker } from '@/components/profile'
 
 // Monad chain ID
 const MONAD_CHAIN_ID = 143
@@ -16,6 +17,7 @@ interface UserAgent {
   agentAddress: string
   isEnabled: boolean
   agentName: string | null
+  nftAvatarSeed: number | null
   personality: string | null
   customPersonality: string | null
   playStyle: string | null
@@ -195,6 +197,7 @@ export default function MyAgentPage() {
   const [transactions, setTransactions] = useState<AgentTransaction[]>([])
   const [loadingTx, setLoadingTx] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [isNftPickerOpen, setIsNftPickerOpen] = useState(false)
 
   // Transaction states (replacing wagmi hooks)
   const [txHash, setTxHash] = useState<string | null>(null)
@@ -315,6 +318,26 @@ export default function MyAgentPage() {
       console.error('Error fetching agent:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const setAgentNftAvatar = async (seed: number | null): Promise<boolean> => {
+    if (!address) return false
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/agents/${address}/nft-avatar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seed }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        // Refresh agent data
+        await fetchAgent()
+        return true
+      }
+      return false
+    } catch {
+      return false
     }
   }
 
@@ -555,6 +578,7 @@ export default function MyAgentPage() {
   const pnlPositive = parseFloat(pnl) >= 0
 
   return (
+    <>
     <main className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
       <Navigation />
 
@@ -630,9 +654,28 @@ export default function MyAgentPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-lobster-500 to-ocean-500 flex items-center justify-center text-3xl">
-                    {PERSONALITIES.find(p => p.id === agent.personality)?.emoji || '🤖'}
-                  </div>
+                  {agent.nftAvatarSeed != null ? (
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => setIsNftPickerOpen(true)}
+                    >
+                      <ProfileAvatar
+                        avatarUrl={null}
+                        nftSeed={agent.nftAvatarSeed}
+                        size="lg"
+                        isAgent
+                        showBorder
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className="w-14 h-14 rounded-xl bg-gradient-to-br from-lobster-500 to-ocean-500 flex items-center justify-center text-3xl cursor-pointer"
+                      onClick={() => setIsNftPickerOpen(true)}
+                      title="Set NFT Avatar"
+                    >
+                      {PERSONALITIES.find(p => p.id === agent.personality)?.emoji || '🤖'}
+                    </div>
+                  )}
                   <div>
                     <h3 className="font-semibold text-lg">
                       {agent.agentName || `Agent-${agent.agentAddress.slice(0, 6)}`}
@@ -1271,5 +1314,15 @@ export default function MyAgentPage() {
         </AnimatePresence>
       </div>
     </main>
+
+    {/* NFT Avatar Picker for Agent */}
+    <NFTAvatarPicker
+      isOpen={isNftPickerOpen}
+      onClose={() => setIsNftPickerOpen(false)}
+      walletAddress={address}
+      currentNftSeed={agent?.nftAvatarSeed}
+      onSelect={setAgentNftAvatar}
+    />
+    </>
   )
 }

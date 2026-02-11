@@ -33,6 +33,7 @@ interface SenderProfile {
   avatarUrl: string | null
   name: string | null
   isAgent: boolean
+  nftAvatarSeed?: number | null
 }
 
 interface LobsterChatProps {
@@ -179,6 +180,23 @@ export function LobsterChat({ socket, currentAddress, userAgentAddress }: Lobste
     scrollToBottom()
   }, [messages])
 
+  // Fetch a single sender profile from API
+  const fetchSingleProfile = async (sender: string): Promise<SenderProfile | null> => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/profiles/${sender}`)
+      const data = await response.json()
+      if (data.success && data.data) {
+        return {
+          avatarUrl: data.data.avatarUrl,
+          name: data.data.name,
+          isAgent: data.data.isAgent,
+          nftAvatarSeed: data.data.nftAvatarSeed || null,
+        }
+      }
+    } catch { /* ignore */ }
+    return null
+  }
+
   // Fetch sender profiles for new messages
   useEffect(() => {
     const fetchSenderProfiles = async () => {
@@ -189,17 +207,10 @@ export function LobsterChat({ socket, currentAddress, userAgentAddress }: Lobste
         uniqueSenders
           .filter(sender => !senderProfiles[sender])
           .map(async (sender) => {
-            try {
-              const response = await fetch(`${BACKEND_URL}/api/profiles/${sender}`)
-              const data = await response.json()
-              if (data.success && data.data) {
-                newProfiles[sender] = {
-                  avatarUrl: data.data.avatarUrl,
-                  name: data.data.name,
-                  isAgent: data.data.isAgent,
-                }
-              }
-            } catch {
+            const profile = await fetchSingleProfile(sender)
+            if (profile) {
+              newProfiles[sender] = profile
+            } else {
               newProfiles[sender] = {
                 avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${sender}&size=64`,
                 name: null,
@@ -218,6 +229,34 @@ export function LobsterChat({ socket, currentAddress, userAgentAddress }: Lobste
       fetchSenderProfiles()
     }
   }, [messages])
+
+  // Periodically refresh current user's profile to pick up avatar changes
+  useEffect(() => {
+    if (!currentAddress) return
+
+    const refreshOwnProfile = async () => {
+      const addr = currentAddress.toLowerCase()
+      const profile = await fetchSingleProfile(addr)
+      if (profile) {
+        setSenderProfiles(prev => {
+          const existing = prev[addr]
+          // Only update if something actually changed
+          if (existing &&
+              existing.avatarUrl === profile.avatarUrl &&
+              existing.nftAvatarSeed === profile.nftAvatarSeed &&
+              existing.name === profile.name) {
+            return prev
+          }
+          return { ...prev, [addr]: profile }
+        })
+      }
+    }
+
+    // Refresh immediately on mount, then every 15s
+    refreshOwnProfile()
+    const interval = setInterval(refreshOwnProfile, 15000)
+    return () => clearInterval(interval)
+  }, [currentAddress])
 
   const sendMessage = () => {
     if (!socket || !inputMessage.trim() || !currentAddress) return
@@ -354,6 +393,7 @@ export function LobsterChat({ socket, currentAddress, userAgentAddress }: Lobste
                         <ProfileAvatar
                           avatarUrl={profile?.avatarUrl || null}
                           name={profile?.name || msg.senderName}
+                          nftSeed={profile?.nftAvatarSeed}
                           size="sm"
                           isAgent={msg.isAgent || profile?.isAgent}
                           showBorder={false}

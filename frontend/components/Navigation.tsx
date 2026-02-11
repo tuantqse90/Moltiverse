@@ -34,7 +34,7 @@ const MOBILE_NAV_ITEMS = [
 export function Navigation() {
   const pathname = usePathname()
   const { address, isConnecting, connect, disconnect } = useWallet()
-  const avatarUrl = useAvatarUrl(address || undefined)
+  const avatarData = useAvatarUrl(address || undefined)
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -65,6 +65,16 @@ export function Navigation() {
 
               {/* Center Nav */}
               <div className="flex items-center gap-0.5">
+                <Link href="/skill">
+                  <motion.div
+                    className="relative px-2.5 py-1.5 rounded-lg flex items-center gap-1 text-xs font-semibold mr-1 transition-colors text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <span>🦀</span>
+                    <span>Skills</span>
+                  </motion.div>
+                </Link>
                 {NAV_ITEMS.map((item) => {
                   const isActive = pathname === item.href
                   return (
@@ -97,7 +107,7 @@ export function Navigation() {
                 {mounted && address && (
                   <Link href="/profile">
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                      <ProfileAvatar avatarUrl={avatarUrl} size="sm" showBorder />
+                      <ProfileAvatar avatarUrl={avatarData.url} nftSeed={avatarData.nftSeed} size="sm" showBorder />
                     </motion.div>
                   </Link>
                 )}
@@ -199,6 +209,18 @@ export function Navigation() {
                   className="overflow-hidden border-t border-monad-700/30"
                 >
                   <div className="p-2 space-y-0.5">
+                    <Link href="/skill" onClick={() => setMobileMenuOpen(false)}>
+                      <motion.div
+                        className="flex items-center gap-3 p-3 rounded-xl transition-colors text-amber-300 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/15"
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <span className="text-lg w-7 text-center">🦀</span>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">OpenClaw Skills</div>
+                          <div className="text-xs text-amber-400/60">Agent capabilities</div>
+                        </div>
+                      </motion.div>
+                    </Link>
                     {MOBILE_NAV_ITEMS.map((item) => {
                       const isActive = pathname === item.href
                       return (
@@ -231,6 +253,7 @@ export function Navigation() {
 
       {/* Spacer */}
       <div className="h-20 md:h-24" />
+
     </>
   )
 }

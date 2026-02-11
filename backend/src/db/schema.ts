@@ -6,7 +6,8 @@ export const profiles = pgTable('profiles', {
   name: varchar('name', { length: 100 }),
   gender: varchar('gender', { length: 20 }),
   avatarUrl: text('avatar_url'),
-  avatarSource: varchar('avatar_source', { length: 20 }).default('dicebear'), // 'dicebear' | 'twitter'
+  avatarSource: varchar('avatar_source', { length: 20 }).default('dicebear'), // 'dicebear' | 'twitter' | 'nft'
+  nftAvatarSeed: integer('nft_avatar_seed'), // seed of selected NFT for avatar
   hobbies: text('hobbies'),
   wealth: decimal('wealth', { precision: 20, scale: 8 }),
 
@@ -276,6 +277,7 @@ export const userAgentWallets = pgTable('user_agent_wallets', {
   // Agent settings
   isEnabled: boolean('is_enabled').default(false),
   agentName: varchar('agent_name', { length: 50 }),
+  nftAvatarSeed: integer('nft_avatar_seed'), // seed of selected NFT for agent avatar
   personality: varchar('personality', { length: 50 }).default('newbie'),
   customPersonality: text('custom_personality'), // User-defined personality description for AI
   playStyle: varchar('play_style', { length: 50 }).default('strategic'), // aggressive, conservative, strategic, random
@@ -456,6 +458,40 @@ export const agentChatMessages = pgTable('agent_chat_messages', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Telegram Wallets - server-managed wallets for Telegram users
+export const telegramWallets = pgTable('telegram_wallets', {
+  id: serial('id').primaryKey(),
+  telegramUserId: varchar('telegram_user_id', { length: 50 }).unique().notNull(),
+  telegramUsername: varchar('telegram_username', { length: 100 }),
+  walletAddress: varchar('wallet_address', { length: 42 }).unique().notNull(),
+  encryptedPrivateKey: text('encrypted_private_key').notNull(),
+
+  // Balance tracking
+  currentBalance: decimal('current_balance', { precision: 20, scale: 8 }).default('0'),
+  totalDeposited: decimal('total_deposited', { precision: 20, scale: 8 }).default('0'),
+  totalWinnings: decimal('total_winnings', { precision: 20, scale: 8 }).default('0'),
+  totalLosses: decimal('total_losses', { precision: 20, scale: 8 }).default('0'),
+  gamesPlayed: integer('games_played').default(0),
+  gamesWon: integer('games_won').default(0),
+
+  // Auto-play (agent mode for Telegram users)
+  isAutoPlay: boolean('is_auto_play').default(false),
+  isAutoChat: boolean('is_auto_chat').default(false),
+
+  // Profile
+  displayName: varchar('display_name', { length: 100 }),
+  nftAvatarSeed: integer('nft_avatar_seed'),
+
+  // Moltx integration
+  moltxApiKey: text('moltx_api_key'),
+  moltxAgentName: varchar('moltx_agent_name', { length: 100 }),
+  moltxRegistered: boolean('moltx_registered').default(false),
+
+  lastPlayedAt: timestamp('last_played_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 // Type inference for insert/select
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type NewChatMessage = typeof chatMessages.$inferInsert;
@@ -492,3 +528,5 @@ export type NFTItem = typeof nftCollection.$inferSelect;
 export type NewNFTItem = typeof nftCollection.$inferInsert;
 export type NFTActivity = typeof nftActivity.$inferSelect;
 export type NewNFTActivity = typeof nftActivity.$inferInsert;
+export type TelegramWallet = typeof telegramWallets.$inferSelect;
+export type NewTelegramWallet = typeof telegramWallets.$inferInsert;

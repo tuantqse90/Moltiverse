@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm';
-import { db, profiles, userAgentWallets, isDatabaseAvailable, type Profile, type NewProfile } from '../db/index.js';
+import { eq, and } from 'drizzle-orm';
+import { db, profiles, userAgentWallets, nftCollection, telegramWallets, isDatabaseAvailable, type Profile, type NewProfile } from '../db/index.js';
 import { AvatarService } from './avatar.js';
 
 export interface ProfileInput {
@@ -16,7 +16,8 @@ export interface ProfileUpdateInput {
   gender?: string;
   hobbies?: string;
   avatarUrl?: string;
-  avatarSource?: 'dicebear' | 'twitter';
+  avatarSource?: 'dicebear' | 'twitter' | 'nft';
+  nftAvatarSeed?: number | null;
 }
 
 export interface AgentConfigInput {
@@ -72,6 +73,62 @@ export class ProfileService {
   }
 
   /**
+   * Get agent wallet data if this address is an agent wallet
+   */
+  static async getAgentWalletData(agentAddress: string): Promise<{
+    isAgent: boolean;
+    agentType: 'agent' | 'openclaw-agent';
+    agentName: string | null;
+    nftAvatarSeed: number | null;
+    ownerAddress: string;
+  } | null> {
+    if (!isDatabaseAvailable()) return null;
+
+    const addr = agentAddress.toLowerCase();
+
+    // Check web agent wallets first
+    const result = await db!
+      .select()
+      .from(userAgentWallets)
+      .where(eq(userAgentWallets.agentAddress, addr))
+      .limit(1);
+
+    if (result.length > 0) {
+      const agent = result[0];
+      return {
+        isAgent: true,
+        agentType: 'agent',
+        agentName: agent.agentName || `Agent-${agentAddress.slice(0, 6)}`,
+        nftAvatarSeed: agent.nftAvatarSeed ?? null,
+        ownerAddress: agent.ownerAddress,
+      };
+    }
+
+    // Check Telegram wallets with auto-play enabled
+    const tgResult = await db!
+      .select()
+      .from(telegramWallets)
+      .where(and(
+        eq(telegramWallets.walletAddress, addr),
+        eq(telegramWallets.isAutoPlay, true),
+      ))
+      .limit(1);
+
+    if (tgResult.length > 0) {
+      const tgWallet = tgResult[0];
+      return {
+        isAgent: true,
+        agentType: 'openclaw-agent',
+        agentName: tgWallet.displayName || tgWallet.telegramUsername || `TG-${tgWallet.telegramUserId}`,
+        nftAvatarSeed: tgWallet.nftAvatarSeed ?? null,
+        ownerAddress: addr,
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Create or update a profile
    */
   static async upsert(input: ProfileInput): Promise<Profile> {
@@ -88,6 +145,7 @@ export class ProfileService {
         gender: input.gender || existing?.gender || null,
         avatarUrl: existing?.avatarUrl || avatarUrl,
         avatarSource: existing?.avatarSource || 'dicebear',
+        nftAvatarSeed: existing?.nftAvatarSeed || null,
         hobbies: input.hobbies || existing?.hobbies || null,
         wealth: existing?.wealth || null,
         twitterId: existing?.twitterId || null,
@@ -294,6 +352,7 @@ export class ProfileService {
     personality: string | null;
     isAgent: boolean;
     isEnabled: boolean;
+    nftAvatarSeed: number | null;
   }>> {
     if (!isDatabaseAvailable()) {
       return [];
@@ -312,6 +371,7 @@ export class ProfileService {
       personality: agent.personality,
       isAgent: true,
       isEnabled: agent.isEnabled || false,
+      nftAvatarSeed: agent.nftAvatarSeed ?? null,
     }));
   }
 
@@ -402,6 +462,89 @@ export class ProfileService {
   }
 
   /**
+   * Set NFT avatar for a profile
+   */
+  static async setNftAvatar(walletAddress: string, seed: number | null): Promise<Profile | null> {
+    const normalizedAddress = walletAddress.toLowerCase();
+
+    // Ensure profile exists
+    let profile = await this.getByWallet(normalizedAddress);
+    if (!profile) {
+      profile = await this.upsert({ walletAddress: normalizedAddress });
+    }
+
+    if (seed !== null && isDatabaseAvailable()) {
+      // Validate that this wallet owns an NFT with this seed
+      const nft = await db!
+        .select()
+        .from(nftCollection)
+        .where(
+          and(
+            eq(nftCollection.ownerAddress, normalizedAddress),
+            eq(nftCollection.seed, seed)
+          )
+        )
+        .limit(1);
+
+      if (nft.length === 0) {
+        return null; // User doesn't own this NFT
+      }
+    }
+
+    const updateData = seed !== null
+      ? { nftAvatarSeed: seed, avatarSource: 'nft' as const, updatedAt: new Date() }
+      : { nftAvatarSeed: null, avatarSource: 'dicebear' as const, updatedAt: new Date() };
+
+    if (!isDatabaseAvailable()) {
+      const existing = profileCache.get(normalizedAddress);
+      if (!existing) return null;
+
+      const updated: Profile = { ...existing, ...updateData };
+      profileCache.set(normalizedAddress, updated);
+      return updated;
+    }
+
+    await db!
+      .update(profiles)
+      .set(updateData)
+      .where(eq(profiles.walletAddress, normalizedAddress));
+
+    return this.getByWallet(normalizedAddress);
+  }
+
+  /**
+   * Set NFT avatar for an agent
+   */
+  static async setAgentNftAvatar(ownerAddress: string, seed: number | null): Promise<boolean> {
+    const normalizedOwner = ownerAddress.toLowerCase();
+
+    if (!isDatabaseAvailable()) return false;
+
+    if (seed !== null) {
+      // Validate that the owner owns an NFT with this seed
+      const nft = await db!
+        .select()
+        .from(nftCollection)
+        .where(
+          and(
+            eq(nftCollection.ownerAddress, normalizedOwner),
+            eq(nftCollection.seed, seed)
+          )
+        )
+        .limit(1);
+
+      if (nft.length === 0) return false;
+    }
+
+    await db!
+      .update(userAgentWallets)
+      .set({ nftAvatarSeed: seed, updatedAt: new Date() })
+      .where(eq(userAgentWallets.ownerAddress, normalizedOwner));
+
+    return true;
+  }
+
+  /**
    * Seed agent profiles on startup
    */
   static async seedAgents(): Promise<void> {
@@ -424,6 +567,7 @@ export class ProfileService {
             gender: null,
             avatarUrl,
             avatarSource: 'dicebear',
+            nftAvatarSeed: null,
             hobbies: null,
             wealth: null,
             twitterId: null,

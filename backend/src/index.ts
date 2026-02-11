@@ -3,6 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { BlockchainService } from './services/blockchain.js';
 import { TimerService } from './services/timer.js';
 import { MoltbookService } from './services/moltbook.js';
@@ -25,6 +27,7 @@ import achievementsRoutes from './api/achievements.js';
 import referralRoutes from './api/referrals.js';
 import gameHistoryRoutes from './api/gameHistory.js';
 import skillFilesRoutes from './api/skillFiles.js';
+import telegramRoutes from './api/telegram.js';
 import { userAgentRunner } from './services/userAgentRunner.js';
 import { ProfileService } from './services/profile.js';
 import { AchievementService } from './services/achievements.js';
@@ -35,6 +38,7 @@ import { PMonService, PMON_POINTS } from './services/pmon.js';
 import { ReferralService } from './services/referral.js';
 import { ChatService } from './services/chat.js';
 import { GameHistoryService } from './services/gameHistory.js';
+import { TelegramWalletService } from './services/telegramWallet.js';
 import { isDatabaseAvailable } from './db/index.js';
 import { setSocketInstance } from './socket.js';
 
@@ -82,6 +86,27 @@ async function main() {
   app.use('/api/referrals', referralRoutes);
   app.use('/api/game-history', gameHistoryRoutes);
   app.use('/api/skill-files', skillFilesRoutes);
+  app.use('/api/telegram', telegramRoutes);
+
+  // Serve SKILL.MD so OpenClaw bot can fetch latest skills
+  app.get('/api/skill-doc', (_req, res) => {
+    try {
+      // Try multiple paths (dev vs prod)
+      const paths = [
+        resolve(process.cwd(), 'SKILL.MD'),
+        resolve(process.cwd(), '../SKILL.MD'),
+      ];
+      for (const p of paths) {
+        try {
+          const content = readFileSync(p, 'utf-8');
+          return res.type('text/markdown').send(content);
+        } catch { /* try next */ }
+      }
+      res.status(404).json({ error: 'SKILL.MD not found' });
+    } catch {
+      res.status(404).json({ error: 'SKILL.MD not found' });
+    }
+  });
 
   // Database and seed data
   console.log(`Database available: ${isDatabaseAvailable()}`);
@@ -299,6 +324,16 @@ async function main() {
       console.error('Error completing referral:', err);
     }
 
+    // Track telegram wallet join
+    try {
+      const tgWallet = await TelegramWalletService.getWalletByAddress(agent);
+      if (tgWallet) {
+        console.log(`  Telegram user ${tgWallet.telegramUserId} joined pot`);
+      }
+    } catch (err) {
+      console.error('Error checking telegram wallet join:', err);
+    }
+
     // Emit updated pot info
     blockchain.getCurrentRoundInfo().then((roundInfo) => {
       io.emit('pot:update', roundInfo);
@@ -398,21 +433,62 @@ async function main() {
     // Post to Moltbook
     await moltbook.postWinAnnouncement(winner, amount, round, participantCount);
 
-    // Post to Moltx (if configured)
+    // Post to Moltx (if configured) - include winner's NFT avatar if available
     if (moltxService.isConfigured()) {
       try {
+        // Look up winner's NFT avatar seed
+        let nftSeed: number | null = null;
+        const winnerProfile = await ProfileService.getProfile(winner);
+        if (winnerProfile?.avatarSource === 'nft' && winnerProfile.nftAvatarSeed) {
+          nftSeed = winnerProfile.nftAvatarSeed;
+        } else {
+          // Check if winner is an agent with NFT avatar
+          const agentData = await ProfileService.getAgentWalletData(winner);
+          if (agentData?.nftAvatarSeed) {
+            nftSeed = agentData.nftAvatarSeed;
+          }
+        }
+
         const moltxResult = await moltxService.postWinner({
           address: winner,
           amount: parseFloat(amount),
           roundNumber: round,
           participantCount,
+          nftSeed,
         });
         if (moltxResult.success) {
-          console.log(`  📣 Posted to Moltx: ${moltxResult.postId}`);
+          console.log(`  📣 Posted to Moltx: ${moltxResult.postId}${nftSeed ? ` (with NFT image seed:${nftSeed})` : ''}`);
         }
       } catch (err) {
         console.error('  Failed to post to Moltx:', err);
       }
+    }
+
+    // Track telegram wallet win + auto-post to Moltx
+    try {
+      const tgWallet = await TelegramWalletService.getWalletByAddress(winner);
+      if (tgWallet) {
+        await TelegramWalletService.recordGameResult(tgWallet.telegramUserId, true, amount);
+        console.log(`  Telegram user ${tgWallet.telegramUserId} won ${amount} MON`);
+
+        // Auto-post win to Moltx if registered
+        if (tgWallet.moltxRegistered) {
+          TelegramWalletService.postWinToMoltx(tgWallet.telegramUserId, {
+            address: winner,
+            amount: parseFloat(amount),
+            roundNumber: round,
+            participantCount,
+          }).then(result => {
+            if (result.success) {
+              console.log(`  📣 TG user ${tgWallet.telegramUserId} posted win to Moltx: ${result.postId}`);
+            }
+          }).catch(err => {
+            console.error(`  Failed to post TG win to Moltx:`, err);
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error recording telegram wallet win:', err);
     }
   });
 
