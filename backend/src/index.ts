@@ -57,6 +57,8 @@ async function main() {
     'http://localhost:3002',
     'http://localhost:3003',
     'https://moltiverse-one.vercel.app',
+    'https://clawpot.xyz',
+    'https://www.clawpot.xyz',
     process.env.FRONTEND_URL,
   ].filter(Boolean) as string[];
 
