@@ -438,7 +438,7 @@ async function main() {
       try {
         // Look up winner's NFT avatar seed
         let nftSeed: number | null = null;
-        const winnerProfile = await ProfileService.getProfile(winner);
+        const winnerProfile = await ProfileService.getByWallet(winner);
         if (winnerProfile?.avatarSource === 'nft' && winnerProfile.nftAvatarSeed) {
           nftSeed = winnerProfile.nftAvatarSeed;
         } else {

@@ -1,4 +1,6 @@
-import { db } from '../db/index.js';
+import { db as _db } from '../db/index.js';
+
+const db = _db!;
 import { nftCollection, nftActivity } from '../db/schema.js';
 import { eq, desc, and } from 'drizzle-orm';
 

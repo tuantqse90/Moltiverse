@@ -162,11 +162,11 @@ export function createNFTRoutes(): Router {
       }
 
       // Check pMON balance
-      const balance = await PMonService.getCombinedBalance(walletAddress);
-      if (balance < PMON_MINT_COST) {
+      const balanceData = await PMonService.getCombinedBalance(walletAddress);
+      if (balanceData.combined.balance < PMON_MINT_COST) {
         res.status(400).json({
           success: false,
-          error: `Insufficient pMON. Need ${PMON_MINT_COST}, have ${balance}`
+          error: `Insufficient pMON. Need ${PMON_MINT_COST}, have ${balanceData.combined.balance}`
         });
         return;
       }
@@ -191,7 +191,7 @@ export function createNFTRoutes(): Router {
           rarityScore: score,
           rarityTier: tier,
           pmonCost: PMON_MINT_COST,
-          pmonBalance: balance,
+          pmonBalance: balanceData.combined.balance,
         },
       });
     } catch (error) {
