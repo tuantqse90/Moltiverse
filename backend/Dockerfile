@@ -5,13 +5,16 @@ WORKDIR /app
 # Install build tools for native modules (canvas)
 RUN apk add --no-cache python3 make g++ pkgconfig pixman-dev cairo-dev pango-dev jpeg-dev giflib-dev
 
-# Install all dependencies (including devDependencies for build)
+# Install all dependencies
 COPY package*.json ./
 RUN npm ci
 
 # Copy source and build
 COPY . .
 RUN npm run build
+
+# Prune devDependencies
+RUN npm prune --omit=dev
 
 # Production image
 FROM node:20-alpine
@@ -21,11 +24,10 @@ WORKDIR /app
 # Runtime dependencies for canvas
 RUN apk add --no-cache cairo pango jpeg giflib pixman
 
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy compiled JS
+# Copy pre-built node_modules (with native canvas already compiled)
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
 
 EXPOSE 3001
 
