@@ -122,10 +122,13 @@ async function main() {
     const dbAvailable = isDatabaseAvailable();
     const hasDbUrl = !!process.env.DATABASE_URL;
     const dbUrlPrefix = process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'NOT SET';
+    // Show all env var keys (no values for security)
+    const envKeys = Object.keys(process.env).sort();
     res.json({
       status: 'ok',
       database: { available: dbAvailable, urlConfigured: hasDbUrl, urlPrefix: dbUrlPrefix },
       env: { nodeEnv: process.env.NODE_ENV, port: process.env.PORT },
+      allEnvKeys: envKeys,
     });
   });
 
