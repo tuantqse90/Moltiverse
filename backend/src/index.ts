@@ -117,8 +117,21 @@ async function main() {
     }
   });
 
+  // Health/debug endpoint
+  app.get('/api/health', async (_req, res) => {
+    const dbAvailable = isDatabaseAvailable();
+    const hasDbUrl = !!process.env.DATABASE_URL;
+    const dbUrlPrefix = process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'NOT SET';
+    res.json({
+      status: 'ok',
+      database: { available: dbAvailable, urlConfigured: hasDbUrl, urlPrefix: dbUrlPrefix },
+      env: { nodeEnv: process.env.NODE_ENV, port: process.env.PORT },
+    });
+  });
+
   // Database and seed data
   console.log(`Database available: ${isDatabaseAvailable()}`);
+  console.log(`DATABASE_URL set: ${!!process.env.DATABASE_URL}`);
   await ProfileService.seedAgents();
   await SkillService.seedDefaultSkills();
   await AchievementService.seedAchievements();
