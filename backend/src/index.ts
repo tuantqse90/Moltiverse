@@ -52,17 +52,19 @@ async function main() {
 
   // Create Express app
   const app = express();
-  app.use(cors());
-  app.use(express.json());
-
-  // Create HTTP server and Socket.io
-  const httpServer = createServer(app);
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3002',
     'http://localhost:3003',
+    'https://moltiverse-one.vercel.app',
     process.env.FRONTEND_URL,
   ].filter(Boolean) as string[];
+
+  app.use(cors({ origin: allowedOrigins, methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] }));
+  app.use(express.json());
+
+  // Create HTTP server and Socket.io
+  const httpServer = createServer(app);
 
   const io = new SocketServer(httpServer, {
     cors: {
