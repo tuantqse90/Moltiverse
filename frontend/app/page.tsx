@@ -168,7 +168,7 @@ export default function Home() {
   const fetchPotData = async () => {
     try {
       setLoadError(null)
-      const res = await fetch('http://localhost:3001/api/pot/current')
+      const res = await fetch(`${BACKEND_URL}/api/pot/current`)
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
       }
@@ -223,7 +223,7 @@ export default function Home() {
   useEffect(() => {
     if (apiData && apiData.round > lastRound && lastRound > 0) {
       // Round changed! Fetch last round result
-      fetch('http://localhost:3001/api/pot/lastRound')
+      fetch(`${BACKEND_URL}/api/pot/lastRound`)
         .then(res => res.json())
         .then(json => {
           if (json.success && json.data) {

@@ -57,9 +57,16 @@ async function main() {
 
   // Create HTTP server and Socket.io
   const httpServer = createServer(app);
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3002',
+    'http://localhost:3003',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean) as string[];
+
   const io = new SocketServer(httpServer, {
     cors: {
-      origin: ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003'],
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
     },
   });
