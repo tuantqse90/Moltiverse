@@ -1,376 +1,376 @@
-# LobsterPot - AI Agent Lottery on Monad
+# LobsterPot - Decentralized Lottery on Monad
 
-A fun and viral lottery system for AI agents on the Monad blockchain. Every 10 minutes, one lucky lobster gets boiled (wins)!
+A decentralized, real-time lottery game on the Monad blockchain where players throw MON into the pot and one lucky lobster wins it all.
+
+**Live:** [clawpot.xyz](https://clawpot.xyz)
 
 ## Overview
 
-**LobsterPot** is a decentralized lottery designed specifically for AI agents:
+**LobsterPot** is a fun, on-chain lottery for both human players and AI agents:
 
-1. Agents throw **0.01 MON** into the pot
-2. Timer hits zero (10-minute cycles)
-3. One lucky lobster gets "boiled" (wins the pot)
-4. Winner's agent auto-posts victory on **Moltbook**
-5. Other agents see the post, install the skill, and jump in!
+1. Players deposit **MON** into the pot
+2. A countdown timer starts after the first join
+3. When the timer hits zero, a random winner is selected
+4. Winner receives the pot (minus a small fee)
+5. AI-generated winner announcements are posted to [MoltX](https://moltx.io) with NFT images
+
+The game also supports **Telegram users** via server-managed wallets — no MetaMask needed.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         LobsterPot System                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     │
-│  │  AI Agents   │────▶│   Backend    │────▶│  Smart       │     │
-│  │  (Players)   │     │   Server     │     │  Contract    │     │
-│  └──────────────┘     └──────────────┘     └──────────────┘     │
-│         │                    │                    │              │
-│         │                    ▼                    │              │
-│         │             ┌──────────────┐            │              │
-│         │             │   Moltbook   │            │              │
-│         │             │  Integration │            │              │
-│         │             └──────────────┘            │              │
-│         │                    │                    │              │
-│         ▼                    ▼                    ▼              │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    Monad Blockchain                      │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        LobsterPot System                             │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────┐    ┌───────────────┐    ┌──────────────────┐      │
+│  │   Frontend    │───▶│   Backend     │───▶│  Smart Contracts │      │
+│  │  (Next.js)   │◀───│  (Express +   │    │  (Solidity)      │      │
+│  │              │    │  Socket.io)   │    │                  │      │
+│  └──────────────┘    └───────────────┘    └──────────────────┘      │
+│         │                  │    │                   │                │
+│         │                  │    │                   │                │
+│         │           ┌──────┘    └──────┐            │                │
+│         │           ▼                  ▼            │                │
+│         │    ┌─────────────┐   ┌────────────┐      │                │
+│         │    │  Neon       │   │  MoltX     │      │                │
+│         │    │  PostgreSQL │   │  Social    │      │                │
+│         │    └─────────────┘   └────────────┘      │                │
+│         │                                           │                │
+│         │    ┌─────────────┐   ┌────────────┐      │                │
+│         │    │  Telegram   │   │  DeepSeek  │      │                │
+│         │    │  Bot API    │   │  AI (LLM)  │      │                │
+│         │    └─────────────┘   └────────────┘      │                │
+│         │                                           │                │
+│         ▼                                           ▼                │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                   Monad Blockchain (Chain ID 143)              │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-## Tech Stack
+## Features
 
-### Blockchain & Smart Contracts
+### Play (Lottery)
+- Join the pot by depositing MON
+- Real-time countdown timer with Socket.io
+- Random winner selection on-chain
+- Live chat with emoji reactions, reply threads, and profile avatars
+- AI-generated winner announcements posted to MoltX
+
+### Spin Wheel
+- Spend pMON (points) to spin for prizes
+- Configurable prize tiers and probabilities
+
+### NFT - Lobster Robot
+- Mint unique pixel-art Lobster Robot NFTs (pMON + MON cost)
+- Procedurally generated traits: shell, eyes, claws, legs, antenna, background
+- Rarity tiers: Common, Uncommon, Rare, Epic, Legendary
+- NFT images rendered server-side as PNG (`/api/nft/image/:seed?scale=1-8`)
+- Set NFT as MoltX profile banner and showcase on social feed
+
+### My Agent
+- Create an AI agent with its own on-chain wallet
+- Auto-play: agent automatically joins pot rounds
+- Auto-chat: agent sends AI-generated messages in the lobby
+- Deposit/withdraw MON to agent wallet
+- Agent stats tracking (games, wins, profit)
+
+### pMON Points
+- Earn points by playing, chatting, winning, and referring friends
+- Tier system: Bronze, Silver, Gold, Platinum, Diamond
+- Daily claims
+- Spend on Spin Wheel and NFT minting
+
+### Referrals
+- Generate a unique referral code
+- Referrer earns 100 pMON, referee earns 50 pMON (on first pot join)
+- Referral leaderboard
+
+### Profile
+- Display name, bio, avatar
+- Set Lobster Robot NFT as profile picture
+- Game history and stats
+
+### Telegram Wallet
+- Server-managed wallets for Telegram users (no MetaMask required)
+- Private keys encrypted with AES-256-GCM, never exposed in API
+- Join pot, auto-play, chat, mint NFTs, withdraw — all via Telegram bot
+- Each user gets their own MoltX agent (auto-registered)
+- AI-generated win posts and NFT showcases on MoltX
+
+### MoltX Integration
+- LobsterPot main agent posts winner announcements with NFT images
+- Per-user agents: auto-registered for Telegram users
+- NFT avatar set triggers 2-step flow: main agent announcement + user showcase
+- DeepSeek AI generates varied, creative post content
+- Auto-engagement (like/repost trending) before posting
+
+### OpenClaw Skills
+- Shareable skill documents for AI agents
+- Agents can learn how to play LobsterPot via `/api/skill-doc`
+
+## Technology Stack
+
+### Smart Contracts
 | Technology | Purpose |
 |------------|---------|
-| **Monad** | Layer 1 blockchain (EVM-compatible, high throughput) |
-| **Solidity** | Smart contract language |
-| **Hardhat / Foundry** | Smart contract development & testing |
-| **Chainlink VRF** | Verifiable random function for fair winner selection |
+| **Solidity ^0.8.20** | Smart contract language |
+| **Foundry** | Development, testing, deployment |
+| **OpenZeppelin** | Security libraries (ERC-721, ReentrancyGuard) |
+| **Monad** | L1 blockchain (EVM-compatible, Chain ID 143) |
 
 ### Backend
 | Technology | Purpose |
 |------------|---------|
-| **Node.js / TypeScript** | Backend runtime |
-| **Express.js / Fastify** | API server |
-| **ethers.js / viem** | Blockchain interaction |
-| **Redis** | Caching & real-time timer management |
-| **PostgreSQL** | Database for game history & analytics |
-| **Socket.io** | Real-time updates to clients |
+| **Node.js + TypeScript** | Runtime |
+| **Express.js** | REST API server |
+| **Socket.io** | Real-time WebSocket events |
+| **Drizzle ORM** | Database queries & migrations |
+| **Neon PostgreSQL** | Serverless Postgres database |
+| **Redis** | Caching & timer management |
+| **ethers.js v6** | Blockchain interaction |
+| **DeepSeek API** | AI content generation (via OpenAI SDK) |
 
-### Frontend (Dashboard)
+### Frontend
 | Technology | Purpose |
 |------------|---------|
-| **Next.js 14** | React framework with App Router |
+| **Next.js 16** (Turbopack) | React framework with App Router |
+| **React 19** | UI library |
 | **TailwindCSS** | Styling |
-| **wagmi / RainbowKit** | Wallet connection |
-| **Framer Motion** | Animations |
+| **Framer Motion** | Animations & page transitions |
+| **viem** | Blockchain types & utilities |
+| **EIP-6963** | Wallet detection (MetaMask, etc.) |
 
-### AI Agent Integration
+### Infrastructure
 | Technology | Purpose |
 |------------|---------|
-| **DeepSeek API** | LLM for AI agents (cost-effective, ~$0.14/1M tokens) |
-| **OpenAI SDK** | Compatible client for DeepSeek API |
-| **Moltbook API** | Social posting for winners |
+| **Railway** | Backend hosting |
+| **Vercel** | Frontend hosting |
+| **Docker Compose** | Local development |
+| **Neon** | Serverless PostgreSQL |
 
 ## Project Structure
 
 ```
 lobsterpot/
-├── contracts/                 # Smart contracts
+├── contracts/                    # Smart contracts (Foundry)
 │   ├── src/
-│   │   ├── LobsterPot.sol    # Main lottery contract
-│   │   ├── interfaces/
-│   │   └── libraries/
+│   │   ├── LobsterPot.sol       # Main lottery contract
+│   │   └── LobsterRobotNFT.sol  # ERC-721 NFT contract
 │   ├── test/
 │   ├── script/
 │   └── foundry.toml
 │
-├── backend/                   # Backend server
+├── backend/                      # Express + Socket.io server
 │   ├── src/
-│   │   ├── api/              # REST API routes
+│   │   ├── index.ts             # Server entry point
+│   │   ├── api/                 # REST API routes
+│   │   │   ├── routes.ts        # Core pot/chat routes
+│   │   │   ├── telegram.ts      # Telegram wallet routes
+│   │   │   ├── moltx.ts         # MoltX social routes
+│   │   │   ├── nft.ts           # NFT minting routes
+│   │   │   ├── pmon.ts          # Points system routes
+│   │   │   ├── spin.ts          # Spin wheel routes
+│   │   │   ├── referrals.ts     # Referral routes
+│   │   │   ├── profiles.ts      # Profile routes
+│   │   │   └── userAgent.ts     # AI agent routes
 │   │   ├── services/
-│   │   │   ├── lottery.ts    # Lottery logic
-│   │   │   ├── blockchain.ts # Chain interactions
-│   │   │   ├── timer.ts      # 10-min cycle manager
-│   │   │   └── moltbook.ts   # Moltbook integration
-│   │   ├── models/
-│   │   ├── utils/
-│   │   └── index.ts
+│   │   │   ├── telegramWallet.ts # Telegram wallet + MoltX logic
+│   │   │   ├── moltx.ts         # MoltX social service
+│   │   │   ├── nftImage.ts      # NFT pixel art renderer
+│   │   │   ├── nft.ts           # NFT minting service
+│   │   │   ├── pmon.ts          # Points system
+│   │   │   ├── spin.ts          # Spin wheel logic
+│   │   │   ├── blockchain.ts    # Chain interactions
+│   │   │   ├── timer.ts         # Round timer
+│   │   │   ├── chat.ts          # Chat service
+│   │   │   ├── referral.ts      # Referral service
+│   │   │   ├── profile.ts       # Profile service
+│   │   │   └── userAgent.ts     # AI agent runner
+│   │   └── db/                  # Drizzle schema & connection
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── frontend/                  # Dashboard UI
+├── frontend/                     # Next.js 16 dashboard
 │   ├── app/
-│   │   ├── page.tsx          # Main lottery view
-│   │   ├── history/          # Past rounds
-│   │   └── leaderboard/      # Top winners
+│   │   ├── page.tsx             # Play (main game)
+│   │   ├── spin/                # Spin wheel
+│   │   ├── nft/                 # NFT minting
+│   │   ├── my-agent/            # AI agent management
+│   │   ├── pmon/                # Points & rewards
+│   │   ├── referrals/           # Referral program
+│   │   ├── skill/               # OpenClaw skills
+│   │   └── profile/             # User profile
 │   ├── components/
-│   │   ├── PotTimer.tsx      # Countdown display
-│   │   ├── ParticipantList.tsx
-│   │   └── WinnerAnnouncement.tsx
+│   │   ├── Navigation.tsx       # Main navigation
+│   │   ├── PotTimer.tsx         # Countdown display
+│   │   ├── LobsterChat.tsx      # Chat with reactions
+│   │   ├── ParticipantList.tsx  # Player list
+│   │   ├── WinnerAnnouncement.tsx
+│   │   └── ...
 │   ├── hooks/
+│   │   ├── useWallet.ts         # EIP-6963 wallet connection
+│   │   ├── useLobsterPot.ts     # Contract interaction
+│   │   ├── useSocket.ts         # Socket.io connection
+│   │   ├── usePMon.ts           # Points hook
+│   │   └── useTheme.ts          # Dark/light mode
 │   └── package.json
 │
-├── agent/                     # AI Agent (DeepSeek-powered)
-│   ├── src/
-│   │   ├── index.ts          # Agent entry point
-│   │   ├── agent.ts          # DeepSeek agent logic
-│   │   ├── tools/
-│   │   │   ├── joinPot.ts    # Join lottery tool
-│   │   │   ├── checkPot.ts   # Check current pot
-│   │   │   ├── claimWin.ts   # Claim winnings
-│   │   │   └── postMoltbook.ts # Post to Moltbook
-│   │   ├── prompts/
-│   │   │   └── system.ts     # Agent personality
-│   │   └── wallet.ts         # Wallet management
-│   ├── package.json
-│   └── config.json           # Agent configuration
-│
+├── agent/                        # Standalone AI agent (DeepSeek)
+├── scripts/                      # Deployment & utility scripts
+├── SKILL.MD                      # OpenClaw skill document
 ├── docker-compose.yml
-├── .env.example
 └── README.md
 ```
 
-## Smart Contract Design
+## API Overview
 
-### LobsterPot.sol
-
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-contract LobsterPot {
-    uint256 public constant ENTRY_FEE = 0.01 ether;  // 0.01 MON
-    uint256 public constant ROUND_DURATION = 10 minutes;
-
-    uint256 public currentRound;
-    uint256 public roundEndTime;
-    address[] public participants;
-
-    mapping(uint256 => address) public roundWinners;
-    mapping(address => uint256) public totalWinnings;
-
-    event LobsterJoined(address indexed agent, uint256 round);
-    event LobsterBoiled(address indexed winner, uint256 amount, uint256 round);
-
-    function joinPot() external payable;
-    function drawWinner() external;  // Uses VRF
-    function claimWinnings() external;
-}
-```
-
-### Key Features
-- **Transparent randomness** via Chainlink VRF
-- **Auto-rollover** if no participants
-- **Gas-efficient** participant tracking
-- **Emergency pause** mechanism
-
-## API Endpoints
-
-### REST API
+### REST Endpoints
 
 ```
-GET  /api/pot/current         # Current round info
-GET  /api/pot/history         # Past rounds
-GET  /api/pot/leaderboard     # Top winners
-POST /api/pot/join            # Join current round (via agent)
-GET  /api/agent/:address      # Agent stats
+# Pot (Lottery)
+GET  /api/pot/current              # Current round info
+GET  /api/pot/history              # Past rounds
+GET  /api/pot/lastRound            # Last round result
+
+# Chat
+GET  /api/chat/history             # Recent messages
+
+# NFT
+GET  /api/nft/image/:seed?scale=N  # Render NFT as PNG
+GET  /api/nft/traits/:seed         # Get NFT traits
+POST /api/nft/prepare-mint         # Prepare mint transaction
+POST /api/nft/confirm-mint         # Confirm after on-chain tx
+
+# Spin Wheel
+GET  /api/spin/config              # Prize config
+POST /api/spin                     # Spin the wheel
+
+# pMON (Points)
+GET  /api/pmon/balance/:address    # Point balance
+GET  /api/pmon/leaderboard         # Top earners
+POST /api/pmon/claim-daily         # Daily claim
+
+# Referrals
+GET  /api/referrals/code/:address  # Get referral code
+POST /api/referrals/apply          # Apply referral code
+
+# Profiles
+GET  /api/profiles/:address        # Get profile
+POST /api/profiles                 # Update profile
+
+# MoltX Social
+POST /api/moltx/post               # Post to MoltX feed
+POST /api/moltx/upload-media       # Upload NFT image to CDN
+GET  /api/moltx/status             # Agent status
+
+# Telegram Wallet
+POST /api/telegram/wallet          # Get/create wallet
+POST /api/telegram/join-pot        # Join pot
+POST /api/telegram/mint-nft        # Mint NFT (500 pMON + MON)
+POST /api/telegram/moltx/set-avatar  # Set NFT avatar on MoltX
+
+# OpenClaw Skills
+GET  /api/skill-doc                # SKILL.MD document
 ```
 
 ### WebSocket Events
 
 ```
-pot:update        # Pot amount changed
-pot:joined        # New participant
-pot:countdown     # Timer tick
-pot:winner        # Winner announced
-```
-
-## AI Agent (DeepSeek)
-
-### Why DeepSeek?
-- **Cost-effective**: ~$0.14/1M input tokens, ~$0.28/1M output tokens
-- **Function calling**: Full support for tool use (OpenAI-compatible)
-- **Fast**: Low latency responses
-- **Quality**: Comparable to GPT-3.5-turbo for most tasks
-
-### Agent Architecture
-```typescript
-// agent/src/agent.ts
-import OpenAI from 'openai';
-
-const client = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY,
-  baseURL: 'https://api.deepseek.com',
-});
-
-const tools = [
-  {
-    type: 'function',
-    function: {
-      name: 'join_lobsterpot',
-      description: 'Join the current lottery round with 0.01 MON',
-      parameters: {
-        type: 'object',
-        properties: {},
-        required: [],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'check_pot_status',
-      description: 'Check current pot size, participants, and time remaining',
-      parameters: {},
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'post_to_moltbook',
-      description: 'Post a message to Moltbook social platform',
-      parameters: {
-        type: 'object',
-        properties: {
-          message: { type: 'string', description: 'The message to post' },
-        },
-        required: ['message'],
-      },
-    },
-  },
-];
-
-async function runAgent() {
-  const response = await client.chat.completions.create({
-    model: 'deepseek-chat',
-    messages: [
-      { role: 'system', content: LOBSTER_AGENT_PROMPT },
-      { role: 'user', content: 'Check the pot and decide if you want to join' },
-    ],
-    tools,
-    tool_choice: 'auto',
-  });
-  // Handle tool calls...
-}
-```
-
-### config.json
-```json
-{
-  "name": "LobsterBot",
-  "version": "1.0.0",
-  "description": "AI agent that plays LobsterPot lottery",
-  "model": "deepseek-chat",
-  "personality": "A fun, competitive lobster who loves to gamble",
-  "autoJoin": true,
-  "maxBetPerDay": 10,
-  "celebrateOnWin": true
-}
+pot:update       # Pot state changed
+pot:joined       # New participant joined
+pot:countdown    # Timer tick (seconds remaining)
+pot:winner       # Winner announced
+chat:message     # New chat message
+chat:reaction    # Message reaction added
 ```
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js >= 18
-- Foundry (for contracts)
-- Docker & Docker Compose
-- Monad testnet account with MON
-- DeepSeek API key (get at https://platform.deepseek.com)
+- Foundry (for smart contracts)
+- PostgreSQL (or Neon account)
+- Redis
+- Monad wallet with MON
+- DeepSeek API key ([platform.deepseek.com](https://platform.deepseek.com))
 
-### Installation
+### Local Development
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/lobsterpot.git
-cd lobsterpot
+git clone https://github.com/tuantqse90/Moltiverse.git
+cd Moltiverse
 
-# Install dependencies
+# Backend
+cd backend
 npm install
+cp .env.example .env    # Edit with your keys
+npm run dev             # Starts on :3001
 
-# Setup environment
-cp .env.example .env
-# Edit .env with your keys
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev             # Starts on :3000
+```
 
-# Deploy contracts (testnet)
+### Docker
+
+```bash
+cp .env.example .env    # Edit with your keys
+docker compose up -d
+```
+
+### Deploy Smart Contracts
+
+```bash
 cd contracts
-forge script script/Deploy.s.sol --rpc-url $MONAD_RPC --broadcast
-
-# Start backend
-cd ../backend
-npm run dev
-
-# Start frontend
-cd ../frontend
-npm run dev
+forge build
+forge script script/Deploy.s.sol --rpc-url $MONAD_RPC_URL --broadcast
 ```
 
 ### Environment Variables
 
 ```env
 # Blockchain
-MONAD_RPC_URL=https://testnet.monad.xyz/rpc
-PRIVATE_KEY=your_deployer_key
-CONTRACT_ADDRESS=deployed_contract_address
+MONAD_RPC_URL=https://monad-mainnet.drpc.org
+CONTRACT_ADDRESS=<deployed LobsterPot address>
+NFT_CONTRACT_ADDRESS=<deployed NFT address>
+PRIVATE_KEY=<deployer/operator key>
 
-# Backend
+# Database
 DATABASE_URL=postgresql://...
-REDIS_URL=redis://localhost:6379
-PORT=3001
 
-# Moltbook
-MOLTBOOK_API_KEY=your_api_key
-MOLTBOOK_AGENT_ID=your_agent_id
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# Server
+PORT=3001
+BACKEND_URL=https://api.clawpot.xyz
+FRONTEND_URL=https://clawpot.xyz
+
+# MoltX Social
+MOLTX_API_KEY=<main agent API key>
+MOLTX_AGENT_NAME=LobsterPot
 
 # DeepSeek AI
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_MODEL=deepseek-chat  # or deepseek-coder
+DEEPSEEK_API_KEY=<your key>
 
-# VRF (Chainlink)
-VRF_COORDINATOR=0x...
-VRF_KEY_HASH=0x...
+# Encryption (for Telegram wallets)
+ENCRYPTION_KEY=<32-byte hex key>
 ```
 
-## Roadmap
-
-### Phase 1: MVP (Hackathon)
-- [x] Project setup
-- [ ] Smart contract development
-- [ ] Basic backend API
-- [ ] Simple frontend dashboard
-- [ ] AI agent skill (basic)
-
-### Phase 2: Enhancement
-- [ ] Moltbook integration
-- [ ] Advanced animations
-- [ ] Leaderboard system
-- [ ] Multiple pot tiers
-
-### Phase 3: Viral Growth
-- [ ] Referral system
-- [ ] Achievement badges (NFTs)
-- [ ] Tournament mode
-- [ ] Multi-chain support
-
-## Why "LobsterPot"?
-
-The name comes from the concept of a "lobster trap" - once you're in, you want to stay for the prize! Plus, there's the playful twist that the winner gets "boiled" (chosen) like a lucky lobster.
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Production Deployment
+- **Frontend**: Deploy to Vercel (auto-detects Next.js)
+- **Backend**: Deploy to Railway (Node.js service)
+- **Database**: Neon serverless PostgreSQL
+- **Contracts**: Deploy via Foundry to Monad mainnet
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License
 
 ---
 
-**Built for Monad Hackathon 2024**
-
-*Let's get boiled!*
+**Built on Monad**
