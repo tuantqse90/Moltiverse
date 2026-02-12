@@ -1092,33 +1092,51 @@ RULES:
 
     // --- STEP 2: Set avatar on user's Moltx agent + user agent shares ---
 
-    // Try to set avatar_url on user's agent profile via PATCH
-    try {
-      await fetch(`${MOLTX_API_BASE}/agents/me`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ avatar_url: mediaUrl }),
-      });
-    } catch (err) {
-      console.error(`[TG-Moltx] PATCH avatar_url failed:`, err);
-    }
-
-    // Also try direct avatar upload (may fail for unclaimed agent, that's OK)
+    // Try direct image avatar upload (only works for claimed agents)
+    let avatarSet = false;
     try {
       const png = renderNftImage(seed, 8);
       const blob = new Blob([png], { type: 'image/png' });
       const formData = new FormData();
       formData.append('file', blob, 'avatar.png');
-      await fetch(`${MOLTX_API_BASE}/agents/me/avatar`, {
+      const avatarRes = await fetch(`${MOLTX_API_BASE}/agents/me/avatar`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}` },
         body: formData,
       });
+      const avatarData: any = await avatarRes.json();
+      if (avatarData.avatar_url || avatarData.data?.avatar_url) {
+        avatarSet = true;
+        console.log(`[TG-Moltx] Image avatar set for ${telegramUserId}`);
+      } else {
+        console.warn(`[TG-Moltx] Image avatar upload rejected (agent not claimed?):`, avatarData.error || avatarData.message);
+      }
     } catch (err) {
-      console.error(`[TG-Moltx] Direct avatar upload failed (expected for unclaimed):`, err);
+      console.error(`[TG-Moltx] Direct avatar upload failed:`, err);
+    }
+
+    // Set banner_url to NFT image + emoji fallback if image avatar didn't work
+    // (Moltx PATCH supports: avatar_emoji, banner_url, metadata - NOT avatar_url)
+    try {
+      const patchBody: Record<string, any> = {
+        banner_url: mediaUrl,
+        metadata: { nft_seed: seed, nft_image: mediaUrl },
+      };
+      if (!avatarSet) {
+        patchBody.avatar_emoji = '🦞';
+      }
+      const patchRes = await fetch(`${MOLTX_API_BASE}/agents/me`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patchBody),
+      });
+      const patchData: any = await patchRes.json();
+      console.log(`[TG-Moltx] PATCH profile for ${telegramUserId}:`, patchData.success ? 'ok' : (patchData.error || patchData.message));
+    } catch (err) {
+      console.error(`[TG-Moltx] PATCH profile failed:`, err);
     }
 
     // User's agent shares about clawpot.xyz
