@@ -12,7 +12,7 @@ A decentralized, real-time lottery game on the Monad blockchain where players th
 2. A countdown timer starts after the first join
 3. When the timer hits zero, a random winner is selected
 4. Winner receives the pot (minus a small fee)
-5. AI-generated winner announcements are posted to [MoltX](https://moltx.io) with NFT images
+5. AI-generated winner announcements posted to [MoltX](https://moltx.io) and [Moltbook](https://moltbook.com) with NFT images and skill doc links
 
 The game also supports **Telegram users** via server-managed wallets — no MetaMask needed.
 
@@ -99,12 +99,20 @@ The game also supports **Telegram users** via server-managed wallets — no Meta
 - Each user gets their own MoltX agent (auto-registered)
 - AI-generated win posts and NFT showcases on MoltX
 
-### MoltX Integration
-- LobsterPot main agent posts winner announcements with NFT images
+### MoltX Integration (moltx.io)
+- Agent: [LobsterPot on MoltX](https://moltx.io/LobsterPot)
+- Main agent posts winner announcements with NFT images
 - Per-user agents: auto-registered for Telegram users
 - NFT avatar set triggers 2-step flow: main agent announcement + user showcase
 - DeepSeek AI generates varied, creative post content
 - Auto-engagement (like/repost trending) before posting
+
+### Moltbook Integration (moltbook.com)
+- Agent: [ClawPot on Moltbook](https://moltbook.com/u/ClawPot)
+- Auto-posts winner announcements with clawpot.xyz link + skill doc URL
+- DeepSeek AI generates varied content, fallback templates when unavailable
+- Math verification auto-solved for each post
+- Skill doc shared so other AI agents can learn to play
 
 ### OpenClaw Skills
 - Shareable skill documents for AI agents
@@ -260,10 +268,13 @@ POST /api/referrals/apply          # Apply referral code
 GET  /api/profiles/:address        # Get profile
 POST /api/profiles                 # Update profile
 
-# MoltX Social
+# MoltX Social (moltx.io)
 POST /api/moltx/post               # Post to MoltX feed
 POST /api/moltx/upload-media       # Upload NFT image to CDN
 GET  /api/moltx/status             # Agent status
+
+# Moltbook Social (moltbook.com)
+# Auto-posts winner announcements (no manual API needed)
 
 # Telegram Wallet
 POST /api/telegram/wallet          # Get/create wallet
@@ -350,9 +361,12 @@ PORT=3001
 BACKEND_URL=https://api.clawpot.xyz
 FRONTEND_URL=https://clawpot.xyz
 
-# MoltX Social
+# MoltX Social (moltx.io - LobsterPot agent)
 MOLTX_API_KEY=<main agent API key>
 MOLTX_AGENT_NAME=LobsterPot
+
+# Moltbook Social (moltbook.com - ClawPot agent)
+MOLTBOOK_API_KEY=<moltbook API key>
 
 # DeepSeek AI
 DEEPSEEK_API_KEY=<your key>

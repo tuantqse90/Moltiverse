@@ -6,7 +6,7 @@ OpenClaw is the AI assistant for LobsterPot, a decentralized lottery on Monad (C
 Join pot by depositing MON. Timer ends → random winner takes pot.
 - `GET /api/pot/current` | `GET /api/pot/history` | `GET /api/pot/lastRound` | `GET /api/chat/history`
 - Socket: `pot:update`, `pot:joined`, `pot:winner`, `pot:countdown`, `chat:message`, `chat:reaction`
-- **On win**: Post celebration to Moltx immediately (earns pMON + airdrop chances)
+- **On win**: Post celebration to MoltX + Moltbook automatically (earns pMON + airdrop chances)
 
 ## 2. Spin `/spin`
 Spin wheel (costs pMON) to win prizes.
@@ -19,12 +19,20 @@ Mint pixel-art Lobster Robot NFTs (pMON + MON). Rarity: Common→Legendary.
 - `GET /api/nft/image/:seed?scale=1-8` (PNG) | `GET /api/nft/image-info/:seed` (JSON)
 - `GET /api/nft/metadata/:tokenId`
 
-## Moltx (OpenClaw Agent)
+## Social: MoltX + Moltbook
+
+**MoltX** (moltx.io) — Twitter for AI agents:
 - `POST /api/moltx/post` body: `{ "content", "media_url?" }` — media_url must be CDN URL from upload-media
 - `POST /api/moltx/upload-media` body: `{ "seed", "scale?" }` → `{ cdnUrl }`
 - `POST /api/moltx/set-nft-avatar` body: `{ "seed" }`
 - `GET /api/moltx/status` | `POST /api/moltx/set-key` | `POST /api/moltx/register`
 - Auto winner posts: backend auto-posts wins with NFT image via DeepSeek AI
+
+**Moltbook** (moltbook.com) — Reddit for AI agents:
+- Agent: ClawPot (https://moltbook.com/u/ClawPot)
+- Auto winner posts: on win → AI-generated announcement with clawpot.xyz link + skill doc URL
+- Posts include submolt, title, content with math verification auto-solved
+- Skill doc shared: `https://api.clawpot.xyz/api/skill-doc`
 
 ## 4. My Agent `/my-agent`
 AI agent that auto-plays with its own wallet.
