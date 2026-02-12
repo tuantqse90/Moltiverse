@@ -8,6 +8,7 @@ import { ProfileService } from './profile.js';
 import { ReferralService } from './referral.js';
 import { renderNftImage } from './nftImage.js';
 import { NFTService } from './nft.js';
+import { moltxService } from './moltx.js';
 
 const RPC_URL = process.env.MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz';
 const CONTRACT_ADDRESS = process.env.LOBSTERPOT_CONTRACT_ADDRESS || process.env.CONTRACT_ADDRESS;
@@ -1002,7 +1003,7 @@ RULES:
   /**
    * Set NFT avatar on Moltx for a Telegram user
    */
-  static async setMoltxNftAvatar(telegramUserId: string, seed: number): Promise<{ success: boolean; avatarUrl?: string; error?: string }> {
+  static async setMoltxNftAvatar(telegramUserId: string, seed: number): Promise<{ success: boolean; avatarUrl?: string; postId?: string; error?: string }> {
     let apiKey: string | null = null;
     if (!isDatabaseAvailable()) {
       apiKey = walletsCache.get(telegramUserId)?.moltxApiKey || null;
@@ -1022,50 +1023,110 @@ RULES:
     // Save seed to DB regardless of avatar upload result
     await this.updateField(telegramUserId, { nftAvatarSeed: seed, updatedAt: new Date() });
 
+    const wallet = await this.getWallet(telegramUserId);
+    const displayName = wallet?.displayName || wallet?.telegramUsername || `TG-${telegramUserId}`;
+    const backendUrl = process.env.BACKEND_URL || 'https://api.clawpot.xyz';
+    const publicNftUrl = `${backendUrl}/api/nft/image/${seed}?scale=8`;
+
+    // --- STEP 1: LobsterPot main agent posts about user setting NFT avatar ---
+    let cdnUrl: string | null = null;
+
+    // Upload NFT image to Moltx CDN via main agent
     try {
-      // Try image avatar upload (requires claimed agent)
       const png = renderNftImage(seed, 8); // 512x512
+      cdnUrl = await moltxService.uploadMedia(png, `nft-avatar-${seed}.png`);
+    } catch (err) {
+      console.error(`[TG-Moltx] Failed to upload NFT to CDN:`, err);
+    }
+
+    const mediaUrl = cdnUrl || publicNftUrl;
+
+    // Generate AI announcement via DeepSeek
+    let announceContent = `🦞 ${displayName} just set their Lobster Robot NFT as avatar on LobsterPot!\n\nJoin the game: https://clawpot.xyz\n\n#LobsterPot #Monad #NFT`;
+
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        const response = await deepseek.chat.completions.create({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: `You are LobsterPot 🦞, the official game agent on Moltx. Write a short, fun announcement that a player just set their Lobster Robot NFT as their avatar.
+
+RULES:
+- Max 400 characters (hard limit)
+- Mention the player name and that they set an NFT avatar
+- Be creative, fun, hype - celebrate the player
+- Mention clawpot.xyz so others can join
+- Use 2-4 emojis
+- End with 2-3 hashtags from: #LobsterPot #Monad #NFT #GameFi #LobsterRobot
+- DO NOT use markdown, just plain text`
+            },
+            {
+              role: 'user',
+              content: `Write an announcement that ${displayName} just set their Lobster Robot NFT (seed #${seed}) as their avatar on LobsterPot. Game URL: https://clawpot.xyz`
+            }
+          ],
+          max_tokens: 200,
+          temperature: 1.0,
+        });
+
+        const aiContent = response.choices[0]?.message?.content?.trim();
+        if (aiContent) {
+          let cleaned = aiContent.length > 480 ? aiContent.slice(0, 477) + '...' : aiContent;
+          if (cleaned.startsWith('"') && cleaned.endsWith('"')) cleaned = cleaned.slice(1, -1);
+          announceContent = cleaned;
+        }
+      } catch (err) {
+        console.error(`[TG-Moltx] DeepSeek announcement failed:`, err);
+      }
+    }
+
+    // Main agent posts announcement with image
+    const mainPostResult = await moltxService.post(announceContent, mediaUrl);
+    if (mainPostResult.success) {
+      console.log(`[TG-Moltx] Main agent posted NFT avatar announcement: ${mainPostResult.postId}`);
+    } else {
+      console.error(`[TG-Moltx] Main agent announcement failed:`, mainPostResult.error);
+    }
+
+    // --- STEP 2: Set avatar on user's Moltx agent + user agent shares ---
+
+    // Try to set avatar_url on user's agent profile via PATCH
+    try {
+      await fetch(`${MOLTX_API_BASE}/agents/me`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ avatar_url: mediaUrl }),
+      });
+    } catch (err) {
+      console.error(`[TG-Moltx] PATCH avatar_url failed:`, err);
+    }
+
+    // Also try direct avatar upload (may fail for unclaimed agent, that's OK)
+    try {
+      const png = renderNftImage(seed, 8);
       const blob = new Blob([png], { type: 'image/png' });
       const formData = new FormData();
       formData.append('file', blob, 'avatar.png');
-
-      const res = await fetch(`${MOLTX_API_BASE}/agents/me/avatar`, {
+      await fetch(`${MOLTX_API_BASE}/agents/me/avatar`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}` },
         body: formData,
       });
-      const data: any = await res.json();
-      const avatarUrl = data.avatar_url || data.data?.avatar_url;
-
-      if (avatarUrl) {
-        console.log(`[TG-Moltx] NFT avatar set for ${telegramUserId} (seed: ${seed})`);
-        return { success: true, avatarUrl };
-      }
-
-      // Image avatar requires claimed agent (X/Twitter verification)
-      // Fall back to emoji avatar and save seed for win posts
-      console.warn(`[TG-Moltx] Image avatar upload failed (agent not claimed?): ${data.error || data.message}`);
-
-      // Set lobster emoji as fallback avatar
-      try {
-        await fetch(`${MOLTX_API_BASE}/agents/me`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ avatar_emoji: '🦞' }),
-        });
-      } catch {}
-
-      return {
-        success: true,
-        error: 'NFT seed saved. Image avatar requires claimed agent (X/Twitter verification). NFT image will still appear in win posts and showcases.',
-      };
     } catch (err) {
-      console.error(`[TG-Moltx] setMoltxNftAvatar error:`, err);
-      return { success: false, error: String(err) };
+      console.error(`[TG-Moltx] Direct avatar upload failed (expected for unclaimed):`, err);
     }
+
+    // User's agent shares about clawpot.xyz
+    this.postNftShowcase(telegramUserId, seed).catch(err => {
+      console.error(`[TG-Moltx] NFT showcase post failed:`, err);
+    });
+
+    return { success: true, avatarUrl: mediaUrl, postId: mainPostResult.postId };
   }
 
   /**
@@ -1112,6 +1173,12 @@ RULES:
       }
     } catch (err) {
       console.error(`[TG-Moltx] Failed to upload NFT image:`, err);
+    }
+
+    // Fallback to public NFT URL if CDN upload failed
+    if (!mediaUrl) {
+      const backendUrl = process.env.BACKEND_URL || 'https://api.clawpot.xyz';
+      mediaUrl = `${backendUrl}/api/nft/image/${seed}?scale=8`;
     }
 
     // Get referral code
