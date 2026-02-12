@@ -47,6 +47,16 @@ class MoltxService {
         const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
         this.config = JSON.parse(data);
         console.log('[Moltx] Config loaded for agent:', this.config?.agentName);
+      } else if (process.env.MOLTX_API_KEY) {
+        // Fallback to env vars (for Railway/production where filesystem is ephemeral)
+        this.config = {
+          apiKey: process.env.MOLTX_API_KEY,
+          agentName: process.env.MOLTX_AGENT_NAME || 'LobsterPot',
+          agentId: process.env.MOLTX_AGENT_ID || '',
+          registered: true,
+          claimed: false,
+        };
+        console.log('[Moltx] Config loaded from env vars for agent:', this.config.agentName);
       }
     } catch (err) {
       console.error('[Moltx] Failed to load config:', err);
