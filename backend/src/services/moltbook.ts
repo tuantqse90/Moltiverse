@@ -1,31 +1,34 @@
-import { SkillService } from './skills.js';
+/**
+ * Moltbook Social Service
+ * Posts LobsterPot winner announcements to moltbook.com
+ */
+
+import OpenAI from 'openai';
 import { ProfileService } from './profile.js';
 
-export interface MoltbookPost {
-  content: string;
-  agentId: string;
-}
+const MOLTBOOK_API_BASE = 'https://www.moltbook.com/api/v1';
+
+const deepseek = new OpenAI({
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY || '',
+});
 
 export class MoltbookService {
   private apiKey: string;
-  private baseUrl: string;
-  private agentId: string;
 
   constructor() {
     this.apiKey = process.env.MOLTBOOK_API_KEY || '';
-    this.baseUrl = process.env.MOLTBOOK_API_URL || 'https://api.moltbook.com';
-    this.agentId = process.env.MOLTBOOK_AGENT_ID || '';
   }
 
   /**
    * Check if Moltbook is configured
    */
   isConfigured(): boolean {
-    return Boolean(this.apiKey && this.agentId);
+    return Boolean(this.apiKey);
   }
 
   /**
-   * Post win announcement with skill link
+   * Post win announcement with skill link and website
    */
   async postWinAnnouncement(
     winnerAddress: string,
@@ -34,96 +37,123 @@ export class MoltbookService {
     participantCount: number
   ): Promise<boolean> {
     if (!this.apiKey) {
-      console.log('Moltbook API key not configured, skipping post');
+      console.log('[Moltbook] API key not configured, skipping post');
       return false;
     }
 
-    // Get winner profile for name
     const profile = await ProfileService.getByWallet(winnerAddress);
     const winnerName = profile?.name || profile?.agentName || null;
+    const shortAddr = `${winnerAddress.slice(0, 6)}...${winnerAddress.slice(-4)}`;
+    const displayName = winnerName ? `${winnerName} (${shortAddr})` : shortAddr;
 
-    // Get skill link
-    const skillLink = SkillService.getSkillLink('lobsterpot_join');
+    const backendUrl = process.env.BACKEND_URL || 'https://api.clawpot.xyz';
+    const skillDocUrl = `${backendUrl}/api/skill-doc`;
 
-    const content = this.generateWinMessage(winnerAddress, winnerName, prize, round, participantCount, skillLink);
+    // Try DeepSeek AI for varied content
+    let content = this.generateFallbackMessage(displayName, prize, round, participantCount, skillDocUrl);
 
-    try {
-      const response = await fetch(`${this.baseUrl}/posts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          content,
-          agentId: this.agentId,
-        }),
-      });
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        const response = await deepseek.chat.completions.create({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: `You are ClawPot, a fun on-chain lottery game agent on Monad blockchain.
+You write winner announcements for Moltbook (social network for AI agents).
 
-      if (!response.ok) {
-        throw new Error(`Failed to post: ${response.statusText}`);
+RULES:
+- Max 500 characters total (hard limit)
+- Must include: winner name/address, prize amount in MON, round number, player count
+- Must include the website URL: https://clawpot.xyz
+- Must include the skill doc URL so other agents can learn to play
+- Be creative, funny, dramatic, or hype - vary your style each time
+- Use 2-4 emojis naturally
+- End with 2-3 hashtags from: #ClawPot #LobsterPot #Monad #GameFi #Winner #OnChain
+- DO NOT use markdown formatting, just plain text with line breaks
+- Sometimes add a call to action for other agents to learn and join`
+            },
+            {
+              role: 'user',
+              content: `Write a winner announcement:
+- Winner: ${displayName}
+- Prize: ${prize} MON
+- Round: #${round}
+- Players: ${participantCount}
+- Website: https://clawpot.xyz
+- Skill doc (for agents to learn): ${skillDocUrl}`
+            }
+          ],
+          max_tokens: 250,
+          temperature: 1.0,
+        });
+
+        const aiContent = response.choices[0]?.message?.content?.trim();
+        if (aiContent) {
+          let cleaned = aiContent;
+          if (cleaned.startsWith('"') && cleaned.endsWith('"')) cleaned = cleaned.slice(1, -1);
+          if (cleaned.length > 500) cleaned = cleaned.slice(0, 497) + '...';
+          content = cleaned;
+        }
+      } catch (err) {
+        console.error('[Moltbook] DeepSeek generation failed:', err);
       }
-
-      console.log('Win announcement posted to Moltbook');
-      return true;
-    } catch (error) {
-      console.error('Failed to post to Moltbook:', error);
-      return false;
     }
+
+    const title = `Round #${round} Winner: ${displayName} won ${prize} MON!`;
+
+    return this.post(title, content);
   }
 
   /**
-   * Post a custom message to Moltbook
+   * Post to Moltbook
    */
-  async post(content: string): Promise<boolean> {
-    if (!this.isConfigured()) {
-      console.log('Moltbook not configured, skipping post');
+  async post(title: string, content: string): Promise<boolean> {
+    if (!this.apiKey) {
+      console.log('[Moltbook] Not configured, skipping post');
       return false;
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/posts`, {
+      const response = await fetch(`${MOLTBOOK_API_BASE}/posts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify({
-          content,
-          agentId: this.agentId,
-        }),
+        body: JSON.stringify({ title, content }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to post: ${response.statusText}`);
-      }
+      const data: any = await response.json();
 
-      return true;
+      if (response.ok && (data.success || data.post)) {
+        console.log('[Moltbook] Post created:', data.post?.id || 'ok');
+        return true;
+      } else {
+        console.error('[Moltbook] Post failed:', data.error || data.message || response.statusText);
+        return false;
+      }
     } catch (error) {
-      console.error('Failed to post to Moltbook:', error);
+      console.error('[Moltbook] Post error:', error);
       return false;
     }
   }
 
-  private generateWinMessage(
-    winner: string,
-    winnerName: string | null,
+  private generateFallbackMessage(
+    displayName: string,
     prize: string,
     round: number,
     participantCount: number,
-    skillLink: string
+    skillDocUrl: string
   ): string {
-    const shortAddress = `${winner.slice(0, 6)}...${winner.slice(-4)}`;
-    const displayName = winnerName ? `${winnerName} (${shortAddress})` : shortAddress;
-
     const messages = [
-      `🦞 LOBSTER BOILED! ${displayName} won ${prize} MON in round #${round}!\n\n${participantCount} lobsters competed. Want to join the next pot?\n\n👉 Learn how: ${skillLink}`,
+      `🦞 LOBSTER BOILED! ${displayName} won ${prize} MON in round #${round}!\n\n${participantCount} lobsters competed. Want your agent to join the next pot?\n\nPlay: https://clawpot.xyz\nLearn the skill: ${skillDocUrl}\n\n#ClawPot #Monad #GameFi`,
 
-      `🎉 WINNER WINNER LOBSTER DINNER!\n\n${displayName} just snagged ${prize} MON from LobsterPot round #${round}!\n\nWant your agent to compete? Learn the skill:\n${skillLink}`,
+      `🎉 WINNER! ${displayName} just snagged ${prize} MON from ClawPot round #${round}!\n\n${participantCount} players entered. Will your agent be next?\n\nhttps://clawpot.xyz\nAgent skill doc: ${skillDocUrl}\n\n#ClawPot #Monad #Winner`,
 
-      `🏆 Round #${round} Winner: ${displayName}\n💰 Prize: ${prize} MON\n🦞 Competitors: ${participantCount}\n\nTeach your agent to join the pot:\n${skillLink}`,
+      `🏆 Round #${round}: ${displayName}\n💰 ${prize} MON | 🦞 ${participantCount} players\n\nTeach your agent to play ClawPot:\n${skillDocUrl}\n\nJoin: https://clawpot.xyz\n\n#ClawPot #Monad #OnChain`,
 
-      `The pot has been claimed! ${displayName} emerged victorious with ${prize} MON!\n\n${participantCount} brave lobsters entered round #${round}.\n\n🤖 Train your agent: ${skillLink}`,
+      `The pot has been claimed! ${displayName} emerged victorious with ${prize} MON in round #${round}!\n\n${participantCount} brave lobsters entered.\n\n🤖 Train your agent: ${skillDocUrl}\n🎮 Play now: https://clawpot.xyz\n\n#LobsterPot #Monad #GameFi`,
     ];
 
     return messages[Math.floor(Math.random() * messages.length)];
